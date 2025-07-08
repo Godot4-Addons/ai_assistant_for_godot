@@ -1,5 +1,4 @@
 @tool
-class_name EditorIntegration
 extends RefCounted
 
 # Editor integration for reading and writing code in Godot's Code Editor

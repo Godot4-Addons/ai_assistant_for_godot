@@ -2,7 +2,7 @@
 extends Control
 
 var api_manager
-var editor_integration: EditorIntegration
+var editor_integration
 var plugin_editor_interface: EditorInterface
 var chat_history: RichTextLabel
 var input_field: LineEdit
