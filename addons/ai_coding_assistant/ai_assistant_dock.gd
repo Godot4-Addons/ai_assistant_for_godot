@@ -3,6 +3,7 @@ extends Control
 
 var api_manager
 var editor_integration: EditorIntegration
+var plugin_editor_interface: EditorInterface
 var chat_history: RichTextLabel
 var input_field: LineEdit
 var send_button: Button
@@ -24,9 +25,11 @@ var improve_button: Button
 # UI containers for better resizing
 var main_splitter: VSplitContainer
 var settings_container: VBoxContainer
+var settings_content: VBoxContainer
 var chat_container: VBoxContainer
 var code_container: VBoxContainer
 var quick_actions_container: VBoxContainer
+var quick_content: VBoxContainer
 
 # Context menus and enhanced features
 var chat_context_menu: PopupMenu
@@ -51,6 +54,17 @@ var setup_guide: Window
 
 func _init():
 	name = "AI Assistant"
+
+func set_editor_interface(editor_interface: EditorInterface):
+	"""Set the EditorInterface from the plugin"""
+	plugin_editor_interface = editor_interface
+
+	# Now initialize editor integration with the proper interface
+	if editor_integration:
+		editor_integration = preload("res://addons/ai_coding_assistant/editor_integration.gd").new(plugin_editor_interface)
+		editor_integration.code_inserted.connect(_on_code_inserted)
+		editor_integration.code_replaced.connect(_on_code_replaced)
+		editor_integration.selection_changed.connect(_on_selection_changed)
 	# Enhanced flexible sizing for better screen adaptation
 	custom_minimum_size = Vector2(200, 250)  # Reduced minimum for smaller screens
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -68,11 +82,7 @@ func _init():
 	api_manager.response_received.connect(_on_response_received)
 	api_manager.error_occurred.connect(_on_error_occurred)
 
-	# Initialize editor integration
-	editor_integration = preload("res://addons/ai_coding_assistant/editor_integration.gd").new()
-	editor_integration.code_inserted.connect(_on_code_inserted)
-	editor_integration.code_replaced.connect(_on_code_replaced)
-	editor_integration.selection_changed.connect(_on_selection_changed)
+	# Editor integration will be initialized when plugin provides EditorInterface
 
 	# Preload utility classes for better performance
 	# Note: These are used in template generation functions
@@ -156,7 +166,7 @@ func _create_settings_section(parent: Container):
 	settings_container.add_child(settings_header)
 
 	# Settings content (collapsible)
-	var settings_content = VBoxContainer.new()
+	settings_content = VBoxContainer.new()
 	settings_content.visible = not settings_collapsed
 
 	# Provider selection with better layout
@@ -437,7 +447,7 @@ func _create_quick_actions_section(parent: Container):
 	quick_actions_container.add_child(quick_header)
 
 	# Quick actions content (collapsible)
-	var quick_content = VBoxContainer.new()
+	quick_content = VBoxContainer.new()
 	quick_content.visible = not quick_actions_collapsed
 
 	var gen_player_btn = Button.new()
@@ -1037,23 +1047,9 @@ func _on_ollama_generate_code():
 
 func _get_selected_text_from_editor() -> String:
 	"""Get selected text from the current script editor"""
-	var editor_interface = EditorInterface.get_singleton()
-	if not editor_interface:
+	if not editor_integration:
 		return ""
-
-	var script_editor = editor_interface.get_script_editor()
-	if not script_editor:
-		return ""
-
-	var current_editor = script_editor.get_current_editor()
-	if not current_editor:
-		return ""
-
-	var code_edit = current_editor.get_base_editor()
-	if not code_edit:
-		return ""
-
-	return code_edit.get_selected_text()
+	return editor_integration.get_selected_text()
 
 func _create_editor_quick_actions():
 	"""Create editor integration quick action buttons"""

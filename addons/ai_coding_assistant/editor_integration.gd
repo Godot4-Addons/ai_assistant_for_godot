@@ -1,6 +1,6 @@
 @tool
-extends RefCounted
 class_name EditorIntegration
+extends RefCounted
 
 # Editor integration for reading and writing code in Godot's Code Editor
 # Provides seamless interaction with the script editor
@@ -23,9 +23,16 @@ var last_selection: String = ""
 var current_file_path: String = ""
 var auto_save_enabled: bool = true
 
-func _init():
+func _init(editor_interface_instance: EditorInterface = null):
 	"""Initialize editor integration"""
-	editor_interface = EditorInterface.get_singleton()
+	if editor_interface_instance:
+		editor_interface = editor_interface_instance
+	else:
+		# Try to get it from the engine (fallback)
+		var main_loop = Engine.get_main_loop()
+		if main_loop and main_loop.has_method("get_editor_interface"):
+			editor_interface = main_loop.get_editor_interface()
+
 	if editor_interface:
 		script_editor = editor_interface.get_script_editor()
 		print("Editor integration initialized")
