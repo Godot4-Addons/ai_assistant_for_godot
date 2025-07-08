@@ -169,7 +169,7 @@ func get_class_info() -> Dictionary:
 	if not editor:
 		return {}
 	
-	var class_name = ""
+	var class_name_found = ""
 	var extends_class = ""
 	var class_line = -1
 	
@@ -177,7 +177,7 @@ func get_class_info() -> Dictionary:
 	for i in range(editor.get_line_count()):
 		var line = editor.get_line(i).strip_edges()
 		if line.begins_with("class_name "):
-			class_name = line.split(" ")[1]
+			class_name_found = line.split(" ")[1]
 			class_line = i
 		elif line.begins_with("extends "):
 			extends_class = line.split(" ")[1]
@@ -202,7 +202,7 @@ func get_class_info() -> Dictionary:
 				variables.append(var_name)
 	
 	return {
-		"class_name": class_name,
+		"class_name": class_name_found,
 		"extends": extends_class,
 		"file_path": get_current_file_path(),
 		"functions": functions,

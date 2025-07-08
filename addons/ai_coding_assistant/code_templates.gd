@@ -439,3 +439,139 @@ static func get_template_description(template_name: String) -> String:
 			return "Health and damage system"
 		_:
 			return "Code template"
+
+static func get_scene_manager_template() -> String:
+	return """extends Node
+
+# Scene Manager for handling scene transitions
+signal scene_changed(scene_name: String)
+
+var current_scene: Node = null
+var loading_screen: Control = null
+
+func _ready():
+	var root = get_tree().root
+	current_scene = root.get_child(root.get_child_count() - 1)
+
+func goto_scene(path: String):
+	call_deferred("_deferred_goto_scene", path)
+
+func _deferred_goto_scene(path: String):
+	if current_scene:
+		current_scene.free()
+
+	var new_scene = ResourceLoader.load(path)
+	if new_scene:
+		current_scene = new_scene.instantiate()
+		get_tree().root.add_child(current_scene)
+		get_tree().current_scene = current_scene
+		scene_changed.emit(path)
+	else:
+		print("Error loading scene: ", path)
+
+func reload_current_scene():
+	get_tree().reload_current_scene()
+"""
+
+static func get_input_handler_template() -> String:
+	return """extends Node
+
+# Input Handler for managing input actions
+signal action_pressed(action: String)
+signal action_released(action: String)
+
+var input_map: Dictionary = {}
+var is_input_enabled: bool = true
+
+func _ready():
+	# Setup default input mappings
+	setup_input_map()
+
+func _input(event: InputEvent):
+	if not is_input_enabled:
+		return
+
+	for action in input_map.keys():
+		if event.is_action_pressed(action):
+			action_pressed.emit(action)
+		elif event.is_action_released(action):
+			action_released.emit(action)
+
+func setup_input_map():
+	input_map = {
+		"move_left": "ui_left",
+		"move_right": "ui_right",
+		"move_up": "ui_up",
+		"move_down": "ui_down",
+		"jump": "ui_accept",
+		"interact": "ui_select"
+	}
+
+func enable_input():
+	is_input_enabled = true
+
+func disable_input():
+	is_input_enabled = false
+
+func is_action_pressed(action: String) -> bool:
+	return Input.is_action_pressed(action) and is_input_enabled
+"""
+
+static func get_health_system_template() -> String:
+	return """extends Node
+
+# Health System Component
+signal health_changed(old_health: int, new_health: int)
+signal died()
+signal healed(amount: int)
+signal damaged(amount: int)
+
+@export var max_health: int = 100
+@export var current_health: int = 100
+@export var regeneration_rate: float = 0.0
+@export var invincibility_time: float = 1.0
+
+var is_invincible: bool = false
+var invincibility_timer: Timer
+
+func _ready():
+	current_health = max_health
+	setup_invincibility_timer()
+
+func setup_invincibility_timer():
+	invincibility_timer = Timer.new()
+	invincibility_timer.wait_time = invincibility_time
+	invincibility_timer.one_shot = true
+	invincibility_timer.timeout.connect(_on_invincibility_timeout)
+	add_child(invincibility_timer)
+
+func take_damage(amount: int):
+	if is_invincible or current_health <= 0:
+		return
+
+	var old_health = current_health
+	current_health = max(0, current_health - amount)
+	health_changed.emit(old_health, current_health)
+	damaged.emit(amount)
+
+	if current_health <= 0:
+		died.emit()
+	else:
+		is_invincible = true
+		invincibility_timer.start()
+
+func heal(amount: int):
+	var old_health = current_health
+	current_health = min(max_health, current_health + amount)
+	health_changed.emit(old_health, current_health)
+	healed.emit(amount)
+
+func get_health_percentage() -> float:
+	return float(current_health) / float(max_health)
+
+func is_alive() -> bool:
+	return current_health > 0
+
+func _on_invincibility_timeout():
+	is_invincible = false
+"""

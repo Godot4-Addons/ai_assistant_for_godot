@@ -277,6 +277,7 @@ func _send_huggingface_request(message: String, context: String):
 	http_request.request(url, headers, HTTPClient.METHOD_POST, json_body)
 
 func _send_cohere_request(message: String, context: String):
+	var url = base_urls["cohere"] + "generate"
 	var headers = [
 		"Authorization: Bearer " + api_key,
 		"Content-Type: application/json"
