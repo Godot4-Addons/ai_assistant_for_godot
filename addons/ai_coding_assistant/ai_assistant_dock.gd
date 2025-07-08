@@ -59,12 +59,8 @@ func set_editor_interface(editor_interface: EditorInterface):
 	"""Set the EditorInterface from the plugin"""
 	plugin_editor_interface = editor_interface
 
-	# Now initialize editor integration with the proper interface
-	if editor_integration:
-		editor_integration = preload("res://addons/ai_coding_assistant/editor_integration.gd").new(plugin_editor_interface)
-		editor_integration.code_inserted.connect(_on_code_inserted)
-		editor_integration.code_replaced.connect(_on_code_replaced)
-		editor_integration.selection_changed.connect(_on_selection_changed)
+func _ready():
+	"""Initialize the dock when it's ready"""
 	# Enhanced flexible sizing for better screen adaptation
 	custom_minimum_size = Vector2(200, 250)  # Reduced minimum for smaller screens
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -82,7 +78,12 @@ func set_editor_interface(editor_interface: EditorInterface):
 	api_manager.response_received.connect(_on_response_received)
 	api_manager.error_occurred.connect(_on_error_occurred)
 
-	# Editor integration will be initialized when plugin provides EditorInterface
+	# Initialize editor integration if EditorInterface is available
+	if plugin_editor_interface:
+		editor_integration = preload("res://addons/ai_coding_assistant/editor_integration.gd").new(plugin_editor_interface)
+		editor_integration.code_inserted.connect(_on_code_inserted)
+		editor_integration.code_replaced.connect(_on_code_replaced)
+		editor_integration.selection_changed.connect(_on_selection_changed)
 
 	# Preload utility classes for better performance
 	# Note: These are used in template generation functions
