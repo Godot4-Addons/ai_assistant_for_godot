@@ -43,6 +43,7 @@ func _setup_ui(sender: String, content: String, color: Color):
 	content_label.fit_content = true
 	content_label.selection_enabled = true
 	content_label.add_theme_font_size_override("normal_font_size", 13)
+	content_label.meta_clicked.connect(func(meta): OS.shell_open(str(meta)))
 	vbox.add_child(content_label)
 
 func set_content(text: String):

@@ -47,8 +47,28 @@ static func to_bbcode(markdown: String) -> String:
 		if m:
 			var h_level = m.get_string(1).length()
 			var text = m.get_string(2).strip_edges()
-			var size = 20 - (h_level * 1)
+			var size = 18 - (h_level * 1)
 			lines[i] = "\n[font_size=" + str(size) + "][b][color=" + AppTheme.COLOR_ACCENT_SOFT.to_html() + "]" + text + "[/color][/b][/font_size]"
 	bbcode = "\n".join(lines)
 	
-	return bbcode
+	# Horizontal Rules
+	regex.compile("^---$")
+	bbcode = regex.sub(bbcode, "\n[center][color=" + AppTheme.COLOR_BG_MUTED.to_html() + "]──────────────[/color][/center]\n", true)
+
+	# Blockquotes
+	regex.compile("^> (.*)$")
+	bbcode = regex.sub(bbcode, "[indent][i][color=" + AppTheme.COLOR_TEXT_DIM.to_html() + "]$1[/color][/i][/indent]", true)
+
+	# Unordered Lists
+	regex.compile("^\\s*[-*]\\s+(.*)$")
+	bbcode = regex.sub(bbcode, "[indent]• $1[/indent]", true)
+
+	# Ordered Lists
+	regex.compile("^\\s*(\\d+)\\.\\s+(.*)$")
+	bbcode = regex.sub(bbcode, "[indent]$1. $2[/indent]", true)
+
+	# Links
+	regex.compile("\\[(.*?)\\]\\((.*?)\\)")
+	bbcode = regex.sub(bbcode, "[url=$2][color=" + AppTheme.COLOR_ACCENT.to_html() + "]$1[/color][/url]", true)
+
+	return bbcode.strip_edges()
