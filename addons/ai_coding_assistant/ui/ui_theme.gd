@@ -12,6 +12,8 @@ const COLOR_ERROR = Color("#ef4444") # Red 500
 const COLOR_TEXT_DIM = Color("#9ca3af") # Slate 400
 const COLOR_TEXT_BOLD = Color("#f3f4f6") # Slate 100
 const COLOR_BG_MUTED = Color("#334155") # Slate 700
+const COLOR_CODE_BG = Color("#0f172a") # Slate 950 (Darker for code)
+const COLOR_QUOTE_BAR = Color("#475569") # Slate 600
 
 # Spacing & Radii
 const SPACING_MAIN = 12
