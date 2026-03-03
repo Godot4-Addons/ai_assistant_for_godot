@@ -4,40 +4,86 @@ class_name MarkdownRenderer
 
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
 
+static func render_to_vbox(vbox: VBoxContainer, markdown: String):
+	# Clear existing segments
+	for child in vbox.get_children():
+		child.queue_free()
+	
+	var segments = _split_into_segments(markdown)
+	
+	for segment in segments:
+		if segment.type == "code":
+			_add_code_segment(vbox, segment.content, segment.lang)
+		else:
+			_add_text_segment(vbox, segment.content)
+
+static func _split_into_segments(markdown: String) -> Array:
+	var segments = []
+	var parts = markdown.split("```")
+	
+	for i in range(parts.size()):
+		var content = parts[i]
+		if i % 2 == 1: # Code block
+			var lines = content.split("\n", true, 1)
+			var lang = lines[0].strip_edges()
+			var code = lines[1] if lines.size() > 1 else ""
+			segments.append({"type": "code", "content": code.strip_edges(), "lang": lang})
+		else: # Text block
+			if not content.strip_edges().is_empty():
+				segments.append({"type": "text", "content": content.strip_edges()})
+	return segments
+
+static func _add_text_segment(vbox: VBoxContainer, text: String):
+	var label = RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.text = to_bbcode(text)
+	label.fit_content = true
+	label.selection_enabled = true
+	label.add_theme_font_size_override("normal_font_size", 13)
+	label.meta_clicked.connect(func(meta): OS.shell_open(str(meta)))
+	vbox.add_child(label)
+
+static func _add_code_segment(vbox: VBoxContainer, code: String, lang: String):
+	var panel = PanelContainer.new()
+	AppTheme.apply_code_panel_style(panel)
+	vbox.add_child(panel)
+	
+	var inner_vbox = VBoxContainer.new()
+	panel.add_child(inner_vbox)
+	
+	var header = HBoxContainer.new()
+	var lang_label = Label.new()
+	lang_label.text = lang.to_upper() if not lang.is_empty() else "CODE"
+	lang_label.add_theme_color_override("font_color", AppTheme.COLOR_ACCENT_SOFT)
+	lang_label.add_theme_font_size_override("font_size", 10)
+	lang_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(lang_label)
+	
+	var copy_btn = Button.new()
+	copy_btn.text = "📋"
+	copy_btn.flat = true
+	copy_btn.tooltip_text = "Copy Code"
+	copy_btn.pressed.connect(func(): DisplayServer.clipboard_set(code))
+	header.add_child(copy_btn)
+	inner_vbox.add_child(header)
+	
+	var code_label = RichTextLabel.new()
+	code_label.bbcode_enabled = true
+	# Escape BBCode characters inside code segments
+	var escaped_code = code.replace("[", "[lb]").replace("]", "[rb]")
+	code_label.text = "[code]" + escaped_code + "[/code]"
+	code_label.fit_content = true
+	code_label.selection_enabled = true
+	code_label.add_theme_font_size_override("normal_font_size", 12)
+	inner_vbox.add_child(code_label)
+
 static func to_bbcode(markdown: String) -> String:
 	var bbcode = markdown
-	
-	# Character Escaping (Preliminary)
-	# We protect BBCode snippets inside code blocks later
 	
 	# Horizontal Rules
 	var regex = RegEx.new()
 	regex.compile("^---$")
 	bbcode = regex.sub(bbcode, "\n[center][color=" + AppTheme.COLOR_BG_MUTED.to_html() + "]────────────────[/color][/center]", true)
-
-	# Code blocks - Advanced with subtle background and language labels
-	var lines = bbcode.split("\n")
-	var new_lines = []
-	var in_code_block = false
-	for line in lines:
-		if line.begins_with("```"):
-			var lang = line.trim_prefix("```").strip_edges()
-			if !in_code_block:
-				in_code_block = true
-				var lang_label = lang.to_upper() if lang != "" else "CODE"
-				new_lines.append("\n[font_size=10][b][color=" + AppTheme.COLOR_ACCENT_SOFT.to_html() + "]" + lang_label + "[/color][/b][/font_size]")
-				new_lines.append("[bgcolor=" + AppTheme.COLOR_CODE_BG.to_html() + "][code]")
-			else:
-				in_code_block = false
-				new_lines.append("[/code][/bgcolor]\n")
-		else:
-			if in_code_block:
-				# Escape BBCode inside code blocks
-				var escaped_line = line.replace("[", "[lb]").replace("]", "[rb]")
-				new_lines.append(escaped_line)
-			else:
-				new_lines.append(line)
-	bbcode = "\n".join(new_lines)
 
 	# Blockquotes - Simulated vertical bar
 	regex.compile("(?m)^> (.*)$")
@@ -72,7 +118,7 @@ static func to_bbcode(markdown: String) -> String:
 
 	# Headers
 	regex.compile("(?m)^(#{1,6})\\s*(.*?)$")
-	lines = bbcode.split("\n")
+	var lines = bbcode.split("\n")
 	for i in range(lines.size()):
 		var m = regex.search(lines[i])
 		if m:
