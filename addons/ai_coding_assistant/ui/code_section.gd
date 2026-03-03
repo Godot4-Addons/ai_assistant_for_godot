@@ -36,6 +36,16 @@ func _setup_ui():
 	code_output.editable = true
 	code_output.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	code_output.add_theme_font_override("font", ThemeDB.fallback_font)
+	
+	# Clean view - no red marks or gutters
+	code_output.draw_tabs = true
+	code_output.draw_spaces = false
+	code_output.gutters_draw_line_numbers = true
+	code_output.gutters_draw_breakpoints_gutter = false
+	code_output.gutters_draw_executing_lines_gutter = false
+	code_output.gutters_draw_fold_gutter = true
+	code_output.syntax_highlighter = null # No errors/warnings
+	
 	add_child(code_output)
 
 	# Action buttons
