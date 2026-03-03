@@ -6,7 +6,13 @@ class_name AIApiManager
 var api_key: String = ""
 var api_provider: String = "gemini"  # gemini, huggingface, cohere, openai, anthropic, groq, ollama
 var current_model_index: int = 0
-var gemini_models: Array = []
+var gemini_models: Array = [
+	"gemini-2.0-flash",
+	"gemini-1.5-flash",
+	"gemini-1.5-pro",
+	"gemini-1.0-pro",
+	"gemini-pro"
+]
 var provider_models: Dictionary = {}
 var base_urls = {
 	"gemini": "https://generativelanguage.googleapis.com/v1beta/models/",
@@ -25,24 +31,7 @@ var http_request: HTTPRequest
 var ollama_handler: AIOllama
 
 func _init():
-	# Always initialize arrays to ensure they're never null
-	gemini_models = [
-		"gemini-2.0-flash",
-		"gemini-1.5-flash",
-		"gemini-1.5-pro",
-		"gemini-1.0-pro",
-		"gemini-pro"
-	]
 
-	base_urls = {
-		"gemini": "https://generativelanguage.googleapis.com/v1beta/models/",
-		"huggingface": "https://api-inference.huggingface.co/models/",
-		"cohere": "https://api.cohere.ai/v1/",
-		"openai": "https://api.openai.com/v1/",
-		"anthropic": "https://api.anthropic.com/v1/",
-		"groq": "https://api.groq.com/openai/v1/",
-		"ollama": "http://localhost:11434/api/"
-	}
 
 	# Initialize models for all providers
 	_init_provider_models()
