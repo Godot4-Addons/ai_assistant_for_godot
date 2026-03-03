@@ -3,7 +3,6 @@ extends Control
 
 # Components
 const ChatSection = preload("res://addons/ai_coding_assistant/ui/chat_section.gd")
-const CodeSection = preload("res://addons/ai_coding_assistant/ui/code_section.gd")
 const SettingsSection = preload("res://addons/ai_coding_assistant/ui/settings_section.gd")
 const Formatter = preload("res://addons/ai_coding_assistant/utils/code_formatter.gd")
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
@@ -145,10 +144,6 @@ func _on_context_changed(context: String):
 
 func _on_clear_requested():
 	api_manager.clear_history()
-
-func _on_apply_code(code: String):
-	if editor_integration:
-		editor_integration.insert_code_at_cursor(code)
 
 func _on_action_triggered(type: String):
 	match type:
