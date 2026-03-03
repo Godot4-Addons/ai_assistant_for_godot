@@ -22,6 +22,9 @@ signal error_occurred(error: String)
 
 var sse_client: SSEClient
 var _current_full_response: String = ""
+var chat_history: Array = []
+var global_context: String = ""
+var _last_user_message: String = ""
 
 func _init():
 	_init_providers()
@@ -83,8 +86,11 @@ func send_chat_request(message: String, context: String = ""):
 		api_key,
 		model_to_use,
 		message,
-		context
+		chat_history,
+		global_context if context.is_empty() else context
 	)
+
+	_last_user_message = message
 
 	# Inject streaming flag if applicable (OpenAI/Anthropic/OpenRouter style)
 	if request_data.has("body"):
@@ -136,10 +142,19 @@ func _on_error_received(error_message: String):
 func _on_request_completed():
 	var full_res = _current_full_response
 	_current_full_response = ""
+	
+	if not _last_user_message.is_empty() and not full_res.is_empty():
+		chat_history.append({"role": "user", "content": _last_user_message})
+		chat_history.append({"role": "assistant", "content": full_res})
+		_last_user_message = ""
+		
 	if sse_client:
 		sse_client.queue_free()
 		sse_client = null
 	response_received.emit(full_res) # Signal end of stream with full response
+
+func clear_history():
+	chat_history.clear()
 
 func generate_code(prompt: String, language: String = "gdscript"):
 	var context = "Generate clean " + language + " code. Only return code."
