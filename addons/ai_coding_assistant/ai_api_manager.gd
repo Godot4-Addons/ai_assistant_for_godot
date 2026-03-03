@@ -8,9 +8,9 @@ var api_provider: String = "gemini"  # gemini, huggingface, cohere, openai, anth
 var current_model_index: int = 0
 var gemini_models: Array = [
 	"gemini-2.0-flash",
-	"gemini-1.5-flash",
-	"gemini-1.5-pro",
-	"gemini-1.0-pro",
+	"gemini-2.5-flash",
+	"gemini-3.1-pro",
+	"gemini-3.0-pro",
 	"gemini-pro"
 ]
 var provider_models: Dictionary = {}

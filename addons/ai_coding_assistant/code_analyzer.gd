@@ -46,12 +46,9 @@ static func analyze_current_context() -> Dictionary:
 
 static func _parse_script_content(lines: PackedStringArray, context: Dictionary, cursor_line: int) -> Dictionary:
 	var current_function = ""
-	var in_class = false
-	var class_indent = 0
 
 	for i in range(lines.size()):
 		var line = lines[i].strip_edges()
-		var original_line = lines[i]
 
 		if line.is_empty() or line.begins_with("#"):
 			continue
@@ -62,8 +59,6 @@ static func _parse_script_content(lines: PackedStringArray, context: Dictionary,
 		elif line.begins_with("class "):
 			var class_match = line.substr(6).split(" ")[0]
 			context["class_name"] = class_match
-			in_class = true
-			class_indent = _get_indent_level(original_line)
 
 		# Check for extends
 		elif line.begins_with("extends "):
@@ -96,17 +91,6 @@ static func _parse_script_content(lines: PackedStringArray, context: Dictionary,
 
 	context["current_function"] = current_function
 	return context
-
-static func _get_indent_level(line: String) -> int:
-	var indent = 0
-	for char in line:
-		if char == "\t":
-			indent += 4
-		elif char == " ":
-			indent += 1
-		else:
-			break
-	return indent
 
 static func _extract_function_name(line: String) -> String:
 	var func_part = line.substr(5).strip_edges()
