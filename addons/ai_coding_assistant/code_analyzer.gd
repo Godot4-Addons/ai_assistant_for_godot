@@ -2,7 +2,7 @@
 extends RefCounted
 
 const Parser = preload("res://addons/ai_coding_assistant/analyzer/code_parser.gd")
-const Engine = preload("res://addons/ai_coding_assistant/analyzer/completion_engine.gd")
+const AIEngine = preload("res://addons/ai_coding_assistant/analyzer/completion_engine.gd")
 
 static func analyze_current_context() -> Dictionary:
 	var script_editor = EditorInterface.get_script_editor()
@@ -19,7 +19,7 @@ static func analyze_current_context() -> Dictionary:
 	return context
 
 static func get_completion_context(text: String, cursor_pos: int) -> Dictionary:
-	return Engine.get_completion_context(text, cursor_pos)
+	return AIEngine.get_completion_context(text, cursor_pos)
 
 static func suggest_completion(ctx: Dictionary, code_ctx: Dictionary) -> Array:
-	return Engine.suggest(ctx, code_ctx)
+	return AIEngine.suggest(ctx, code_ctx)
