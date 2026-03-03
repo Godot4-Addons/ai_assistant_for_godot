@@ -6,6 +6,7 @@ const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
 const MarkdownRenderer = preload("res://addons/ai_coding_assistant/utils/markdown_renderer.gd")
 
 var sender_label: Label
+var time_label: Label
 var body_container: VBoxContainer
 var _full_text: String = ""
 
