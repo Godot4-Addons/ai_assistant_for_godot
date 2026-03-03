@@ -138,25 +138,31 @@ func _process_request():
 			return
 			
 		var data_buffer = ""
-		while _http_client.get_status() == HTTPClient.STATUS_BODY and _is_requesting:
+		while _is_requesting:
 			_http_client.poll()
-			var chunk = _http_client.read_response_body_chunk()
-			if chunk.size() > 0:
-				var str_chunk = chunk.get_string_from_utf8()
-				data_buffer += str_chunk
+			var status = _http_client.get_status()
+			
+			if status != HTTPClient.STATUS_BODY and status != HTTPClient.STATUS_CONNECTED:
+				break
 				
-				# Process complete lines
-				while "\n" in data_buffer:
-					var split_idx = data_buffer.find("\n")
-					var line = data_buffer.substr(0, split_idx).strip_edges()
-					data_buffer = data_buffer.substr(split_idx + 1)
+			if status == HTTPClient.STATUS_BODY:
+				var chunk = _http_client.read_response_body_chunk()
+				if chunk.size() > 0:
+					var str_chunk = chunk.get_string_from_utf8()
+					data_buffer += str_chunk
 					
-					if line.begins_with("data:"):
-						var json_str = line.trim_prefix("data:").strip_edges()
-						if json_str == "[DONE]":
-							break
-							
-						call_deferred("_emit_chunk", json_str)
+					# Process complete lines
+					while "\n" in data_buffer:
+						var split_idx = data_buffer.find("\n")
+						var line = data_buffer.substr(0, split_idx).strip_edges()
+						data_buffer = data_buffer.substr(split_idx + 1)
+						
+						if line.begins_with("data:"):
+							var json_str = line.trim_prefix("data:").strip_edges()
+							if json_str == "[DONE]":
+								break
+								
+							call_deferred("_emit_chunk", json_str)
 						
 			OS.delay_msec(10)
 			

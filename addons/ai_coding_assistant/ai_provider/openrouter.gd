@@ -23,7 +23,9 @@ static func build_request(base_url: String, api_key: String, model: String, mess
 		"url": base_url + "chat/completions",
 		"headers": [
 			"Authorization: Bearer " + api_key,
-			"Content-Type: application/json"
+			"Content-Type: application/json",
+			"HTTP-Referer: https://github.com/godotengine/godot", # Recommended by OpenRouter
+			"X-Title: Godot AI Coding Assistant"
 		],
 		"method": HTTPClient.METHOD_POST,
 		"body": JSON.stringify(body)
