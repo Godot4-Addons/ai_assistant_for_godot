@@ -99,6 +99,7 @@ func _setup_ui():
 	chat_ui.message_sent.connect(_on_chat_sent)
 	chat_ui.stop_requested.connect(_on_stop_requested)
 	chat_ui.clear_requested.connect(_on_clear_requested)
+	chat_ui.mode_requested.connect(func(mode): api_manager.current_mode = mode)
 	chat_container.add_child(chat_ui)
 
 func _toggle_settings():

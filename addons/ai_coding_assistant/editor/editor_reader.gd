@@ -102,3 +102,25 @@ func get_class_info() -> Dictionary:
 		elif l.begins_with("var ") or l.begins_with("@export var "):
 			info.variables.append(l.split(":")[0].split(" ")[-1])
 	return info
+
+func list_files(dir_path: String = "res://") -> Array:
+	var dir = DirAccess.open(dir_path)
+	if not dir: return []
+	
+	var files = []
+	dir.list_dir_begin()
+	var file_name = dir.get_next()
+	while file_name != "":
+		if not file_name.begins_with("."):
+			if dir.current_is_dir():
+				files.append(file_name + "/")
+			else:
+				files.append(file_name)
+		file_name = dir.get_next()
+	return files
+
+func read_file(path: String) -> String:
+	if not FileAccess.file_exists(path): return ""
+	var file = FileAccess.open(path, FileAccess.READ)
+	if not file: return ""
+	return file.get_as_text()

@@ -51,3 +51,24 @@ func append_text(text: String):
 func _save_if_needed():
 	if editor_interface:
 		editor_interface.save_scene()
+
+func write_file(path: String, content: String) -> bool:
+	var dir = path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(dir):
+		DirAccess.make_dir_recursive_absolute(dir)
+	
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	if not file: return false
+	file.store_string(content)
+	
+	# Reload in editor if it's the current file
+	if reader.get_current_file_path() == path:
+		# There isn't a direct "reload" but we can notify
+		pass
+	
+	return true
+
+func delete_file(path: String) -> bool:
+	if not FileAccess.file_exists(path): return false
+	var err = DirAccess.remove_absolute(path)
+	return err == OK

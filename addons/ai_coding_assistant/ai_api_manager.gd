@@ -24,6 +24,7 @@ var sse_client: SSEClient
 var _current_full_response: String = ""
 var chat_history: Array = []
 var global_context: String = ""
+var current_mode: String = "chat"
 var _last_user_message: String = ""
 
 func _init():
@@ -81,13 +82,30 @@ func send_chat_request(message: String, context: String = ""):
 	if model_to_use.is_empty():
 		model_to_use = provider_handlers[api_provider].get_default_model()
 
+	var final_context = global_context if context.is_empty() else context
+	
+	if current_mode in ["code", "auto"]:
+		var blueprint = AIProjectBlueprint.get_blueprint()
+		var tool_defs = """
+You are an Agentic AI Coder. You can control the project files using XML-like tags:
+- <read_file path="res://path/to/file.gd" />
+- <write_file path="res://path/to/file.gd">CONTENT</write_file>
+- <list_files path="res://folder/" />
+- <delete_file path="res://path/to/file.gd" />
+- <update_blueprint>NEW_BLUEPRINT_CONTENT</update_blueprint>
+
+Always use tools when you need to see or change files. 
+Project Blueprint Context:
+""" + blueprint
+		final_context = tool_defs + "\n\nUser System Prompt:\n" + final_context
+
 	var request_data: Dictionary = provider_handlers[api_provider].build_request(
 		base_urls[api_provider],
 		api_key,
 		model_to_use,
 		message,
 		chat_history,
-		global_context if context.is_empty() else context
+		final_context
 	)
 
 	_last_user_message = message
@@ -147,11 +165,23 @@ func _on_request_completed():
 		chat_history.append({"role": "user", "content": _last_user_message})
 		chat_history.append({"role": "assistant", "content": full_res})
 		_last_user_message = ""
+	
+	# Agentic Processing
+	if current_mode in ["code", "auto"] and AIAgentTools.parse_and_execute(full_res, get_parent()).size() > 0:
+		var results = AIAgentTools.parse_and_execute(full_res, get_parent())
+		var result_msg = "Tool execution results:\n"
+		for r in results:
+			result_msg += JSON.stringify(r) + "\n"
+		
+		# Send results back to AI if in auto mode to get a final confirmation
+		if current_mode == "auto":
+			send_chat_request("Observe these results and provide a final summary or next steps: " + result_msg)
+			return
 		
 	if sse_client:
 		sse_client.queue_free()
 		sse_client = null
-	response_received.emit(full_res) # Signal end of stream with full response
+	response_received.emit(full_res)
 
 func clear_history():
 	chat_history.clear()

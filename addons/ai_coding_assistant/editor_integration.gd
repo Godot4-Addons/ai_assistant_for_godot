@@ -35,3 +35,17 @@ func get_editor_info() -> Dictionary:
 		"class_info": get_class_info(),
 		"function_at_cursor": get_function_at_cursor()
 	}
+
+func list_files(dir: String = "res://") -> Array: return reader.list_files(dir)
+func read_file(path: String) -> String: return reader.read_file(path)
+func write_file(path: String, content: String) -> bool: return writer.write_file(path, content)
+func delete_file(path: String) -> bool: return writer.delete_file(path)
+
+func open_scene(path: String):
+	if editor_interface: editor_interface.open_scene_from_path(path)
+
+func open_script(path: String):
+	if editor_interface: editor_interface.edit_resource(load(path))
+
+func run_project():
+	if editor_interface: editor_interface.play_main_scene()
