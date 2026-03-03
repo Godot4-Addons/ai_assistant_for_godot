@@ -62,7 +62,12 @@ static func _execute_tool(tool: String, attrs: Dictionary, content: String, edit
 			var path = attrs.get("path", "")
 			var search = attrs.get("search", "")
 			var replace = attrs.get("replace", "")
-			if path.is_empty() or search.is_empty(): return {"error": "Missing path or search attribute"}
+			
+			if path.is_empty() or search.is_empty():
+				if content.is_empty():
+					return {"error": "Missing path or search attribute and content is empty"}
+				else:
+					replace = content
 			var ok = ei.patch_file(path, search, replace)
 			return {"tool": tool , "success": ok}
 			

@@ -82,35 +82,12 @@ func send_chat_request(message: String, context: String = ""):
 	if model_to_use.is_empty():
 		model_to_use = provider_handlers[api_provider].get_default_model()
 
-	var final_context = global_context if context.is_empty() else context
-	
+	var persona_manager = preload("res://addons/ai_coding_assistant/persona/persona_manager.gd")
+	var blueprint = ""
 	if current_mode in ["code", "auto"]:
-		var blueprint = AIProjectBlueprint.get_blueprint()
-		var tool_defs = """
-### AGENTIC PERSONA
-You are a Senior Godot 4 Engineer. You assist the user with complex coding tasks, project architecture, and editor automation. 
-
-### YOUR CAPABILITIES
-You can interact with the project directly using XML tags. Be precise and proactive.
-- <list_files path="res://scripts/" />: Lists files in a directory.
-- <search_files pattern="REGEX" />: Searches all files for a pattern.
-- <read_file path="res://player.gd" />: Reads full file content.
-- <write_file path="res://new.gd">CONTENT</write_file>: Creates/Overwrites a file.
-- <patch_file path="res://player.gd" search="OLD_CODE" replace="NEW_CODE" />: Edits specifically inside a file. USE THIS for small fixes to avoid overwriting all code.
-- <open_scene path="res://level.tscn" />: Opens a scene in the Godot editor.
-- <open_script path="res://main.gd" />: Opens a script for editing.
-- <run_project />: Plays the current project.
-- <update_blueprint>NEW_BLUEPRINT_CONTENT</update_blueprint>: Updates the project's long-term memory.
-
-### GUIDELINES
-1. Always start by exploring: use `list_files` or `read_file` to understand context.
-2. Prefer `patch_file` for minor changes.
-3. If creating new systems, updated the Blueprint first.
-4. Stay technical, concise, and professional.
-
-Current Project Blueprint:
-""" + blueprint
-		final_context = tool_defs + "\n\nUser Notes:\n" + final_context
+		blueprint = AIProjectBlueprint.get_blueprint()
+	
+	var final_context = persona_manager.get_full_context(current_mode, context if not context.is_empty() else global_context, blueprint)
 
 	var request_data: Dictionary = provider_handlers[api_provider].build_request(
 		base_urls[api_provider],
@@ -211,3 +188,5 @@ func explain_code(code: String):
 func suggest_improvements(code: String):
 	var context = "Suggest improvements for this code:"
 	send_chat_request(code, context)
+
+# Removed redundant _read_persona_file

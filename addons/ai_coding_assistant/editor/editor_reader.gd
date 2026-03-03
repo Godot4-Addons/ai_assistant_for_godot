@@ -129,12 +129,26 @@ func search_files(pattern: String, dir_path: String = "res://") -> Array:
 	var results = []
 	var files = _get_all_files(dir_path)
 	var regex = RegEx.new()
-	regex.compile(pattern)
+	var err = regex.compile(pattern)
+	if err != OK: return [ {"error": "Invalid regex pattern"}]
 	
 	for path in files:
 		var content = read_file(path)
-		if regex.search(content):
-			results.append(path)
+		if content.is_empty(): continue
+		
+		var matches = regex.search_all(content)
+		if matches.size() > 0:
+			var file_results = {"path": path, "matches": []}
+			# Sample up to 3 matches for brevity in prompt context
+			for i in range(min(matches.size(), 3)):
+				var m = matches[i]
+				var line_num = content.substr(0, m.get_start()).count("\n") + 1
+				var start = max(0, content.rfind("\n", m.get_start()))
+				var end = content.find("\n", m.get_end())
+				if end == -1: end = content.length()
+				var line_text = content.substr(start, end - start).strip_edges()
+				file_results.matches.append({"line": line_num, "text": line_text})
+			results.append(file_results)
 	return results
 
 func _get_all_files(path: String) -> Array:
