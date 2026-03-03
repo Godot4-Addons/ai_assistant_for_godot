@@ -14,7 +14,6 @@ var plugin_editor_interface: EditorInterface
 
 # UI Components
 var chat_ui: AIChatSection
-var code_ui: AICodeSection
 var settings_ui: AISettingsSection
 var settings_panel: PanelContainer
 
@@ -91,29 +90,17 @@ func _setup_ui():
 	
 	settings_ui.setup_providers(api_manager.get_provider_list())
 
-	var splitter = VSplitContainer.new()
-	splitter.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	splitter.split_offset = 200
-	main_vbox.add_child(splitter)
-
 	# Chat
 	var chat_container = VBoxContainer.new()
 	chat_container.add_theme_constant_override("separation", 8)
 	chat_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	splitter.add_child(chat_container)
+	main_vbox.add_child(chat_container)
 	
 	chat_ui = ChatSection.new()
 	chat_ui.message_sent.connect(_on_chat_sent)
 	chat_ui.stop_requested.connect(_on_stop_requested)
 	chat_ui.clear_requested.connect(_on_clear_requested)
 	chat_container.add_child(chat_ui)
-
-	# Code Output
-	code_ui = CodeSection.new()
-	code_ui.apply_code.connect(_on_apply_code)
-	code_ui.explain_code.connect(api_manager.explain_code)
-	code_ui.improve_code.connect(api_manager.suggest_improvements)
-	splitter.add_child(code_ui)
 
 func _toggle_settings():
 	settings_panel.visible = !settings_panel.visible
@@ -134,9 +121,6 @@ func _on_chunk_received(chunk: String):
 func _on_response_received(response: String):
 	chat_ui.finish_streaming()
 	chat_ui.set_streaming_state(false)
-	var code = Formatter.extract_code(response)
-	if not code.is_empty():
-		code_ui.set_code(code)
 
 func _on_error_received(err: String):
 	chat_ui.add_message("Error", err, AppTheme.COLOR_ERROR)
