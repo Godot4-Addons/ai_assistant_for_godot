@@ -37,3 +37,16 @@ static func apply_card_style(panel: PanelContainer):
 	style.content_margin_top = SPACING_MAIN
 	style.content_margin_bottom = SPACING_MAIN
 	panel.add_theme_stylebox_override("panel", style)
+
+static func apply_code_panel_style(panel: PanelContainer):
+	var style = StyleBoxFlat.new()
+	style.bg_color = COLOR_CODE_BG
+	style.corner_radius_top_left = RADIUS_S
+	style.corner_radius_top_right = RADIUS_S
+	style.corner_radius_bottom_left = RADIUS_S
+	style.corner_radius_bottom_right = RADIUS_S
+	style.content_margin_left = SPACING_MAIN
+	style.content_margin_right = SPACING_MAIN
+	style.content_margin_top = SPACING_SMALL
+	style.content_margin_bottom = SPACING_SMALL
+	panel.add_theme_stylebox_override("panel", style)
