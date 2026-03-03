@@ -5,10 +5,12 @@ class_name AISettingsSection
 signal provider_changed(provider: String)
 signal model_changed(model: String)
 signal api_key_changed(key: String)
+signal context_changed(context: String)
 
 var provider_option: OptionButton
 var model_field: LineEdit
 var api_key_field: LineEdit
+var context_field: TextEdit
 
 func _ready():
 	_setup_ui()
@@ -61,6 +63,20 @@ func _setup_ui():
 	api_key_hbox.add_child(api_key_field)
 	settings_content.add_child(api_key_hbox)
 
+	# Global Context
+	var context_vbox = VBoxContainer.new()
+	var context_label = Label.new()
+	context_label.text = "Global Context (System Prompt):"
+	
+	context_field = TextEdit.new()
+	context_field.custom_minimum_size = Vector2(0, 80)
+	context_field.placeholder_text = "e.g. Always answer in French, or Act as a Godot expert..."
+	context_field.text_changed.connect(func(): context_changed.emit(context_field.text))
+	
+	context_vbox.add_child(context_label)
+	context_vbox.add_child(context_field)
+	settings_content.add_child(context_vbox)
+
 	add_child(settings_content)
 
 func setup_providers(providers: Array):
@@ -82,3 +98,6 @@ func _on_model_changed(text: String):
 
 func _on_api_key_changed(text: String):
 	api_key_changed.emit(text)
+
+func set_global_context(text: String):
+	context_field.text = text
