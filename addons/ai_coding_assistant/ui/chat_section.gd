@@ -4,6 +4,7 @@ class_name AIChatSection
 
 signal message_sent(message: String)
 signal stop_requested
+signal clear_requested
 signal mode_requested(mode: String)
 signal model_requested(model: String)
 
@@ -72,6 +73,16 @@ func _setup_ui():
 	plus_btn.flat = true
 	plus_btn.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_DIM)
 	cmd_hbox.add_child(plus_btn)
+	
+	var clear_btn = Button.new()
+	clear_btn.text = "🗑️"
+	clear_btn.flat = true
+	clear_btn.tooltip_text = "Clear History"
+	clear_btn.pressed.connect(func():
+		clear_chat()
+		clear_requested.emit()
+	)
+	cmd_hbox.add_child(clear_btn)
 	
 	mode_button = OptionButton.new()
 	mode_button.flat = true
