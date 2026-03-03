@@ -12,10 +12,10 @@ static func get_base_url() -> String:
 static func get_default_model() -> String:
 	return "gpt-4o"
 
-static func build_request(base_url: String, api_key: String, model: String, message: String, context: String) -> Dictionary:
+static func build_request(base_url: String, api_key: String, model: String, message: String, history: Array, system_prompt: String) -> Dictionary:
 	var body = {
 		"model": model,
-		"messages": BaseProvider.build_chat_messages(message, context),
+		"messages": BaseProvider.build_chat_messages(message, history, system_prompt),
 		"max_tokens": 2048,
 		"temperature": 0.7
 	}
@@ -34,4 +34,11 @@ static func parse_response(response_data: Variant) -> String:
 		var choice = response_data["choices"][0]
 		if choice is Dictionary and choice.has("message"):
 			return str(choice["message"].get("content", ""))
+	return ""
+
+static func parse_stream_chunk(response_data: Variant) -> String:
+	if response_data is Dictionary and response_data.has("choices") and response_data["choices"].size() > 0:
+		var choice = response_data["choices"][0]
+		if choice is Dictionary and choice.has("delta"):
+			return str(choice["delta"].get("content", ""))
 	return ""

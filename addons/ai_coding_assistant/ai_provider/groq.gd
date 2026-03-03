@@ -12,10 +12,10 @@ static func get_base_url() -> String:
 static func get_default_model() -> String:
 	return "llama-3.1-8b-instant"
 
-static func build_request(base_url: String, api_key: String, model: String, message: String, context: String) -> Dictionary:
+static func build_request(base_url: String, api_key: String, model: String, message: String, history: Array, system_prompt: String) -> Dictionary:
 	var body = {
 		"model": model,
-		"messages": BaseProvider.build_chat_messages(message, context),
+		"messages": BaseProvider.build_chat_messages(message, history, system_prompt),
 		"max_tokens": 2048,
 		"temperature": 0.7
 	}
