@@ -7,8 +7,10 @@ const Writer = preload("res://addons/ai_coding_assistant/editor/editor_writer.gd
 
 var reader: AIEditorReader
 var writer: AIEditorWriter
+var editor_interface: EditorInterface
 
 func _init(interface: EditorInterface):
+	editor_interface = interface
 	reader = Reader.new(interface)
 	writer = Writer.new(interface, reader)
 
@@ -40,6 +42,8 @@ func list_files(dir: String = "res://") -> Array: return reader.list_files(dir)
 func read_file(path: String) -> String: return reader.read_file(path)
 func write_file(path: String, content: String) -> bool: return writer.write_file(path, content)
 func delete_file(path: String) -> bool: return writer.delete_file(path)
+func search_files(p: String, d: String = "res://") -> Array: return reader.search_files(p, d)
+func patch_file(p: String, s: String, r: String) -> bool: return writer.patch_file(p, s, r)
 
 func open_scene(path: String):
 	if editor_interface: editor_interface.open_scene_from_path(path)

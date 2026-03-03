@@ -124,3 +124,30 @@ func read_file(path: String) -> String:
 	var file = FileAccess.open(path, FileAccess.READ)
 	if not file: return ""
 	return file.get_as_text()
+
+func search_files(pattern: String, dir_path: String = "res://") -> Array:
+	var results = []
+	var files = _get_all_files(dir_path)
+	var regex = RegEx.new()
+	regex.compile(pattern)
+	
+	for path in files:
+		var content = read_file(path)
+		if regex.search(content):
+			results.append(path)
+	return results
+
+func _get_all_files(path: String) -> Array:
+	var files = []
+	var dir = DirAccess.open(path)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not file_name.begins_with("."):
+				if dir.current_is_dir():
+					files.append_array(_get_all_files(path.path_join(file_name)))
+				else:
+					files.append(path.path_join(file_name))
+			file_name = dir.get_next()
+	return files

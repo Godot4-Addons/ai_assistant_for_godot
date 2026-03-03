@@ -87,17 +87,30 @@ func send_chat_request(message: String, context: String = ""):
 	if current_mode in ["code", "auto"]:
 		var blueprint = AIProjectBlueprint.get_blueprint()
 		var tool_defs = """
-You are an Agentic AI Coder. You can control the project files using XML-like tags:
-- <read_file path="res://path/to/file.gd" />
-- <write_file path="res://path/to/file.gd">CONTENT</write_file>
-- <list_files path="res://folder/" />
-- <delete_file path="res://path/to/file.gd" />
-- <update_blueprint>NEW_BLUEPRINT_CONTENT</update_blueprint>
+### AGENTIC PERSONA
+You are a Senior Godot 4 Engineer. You assist the user with complex coding tasks, project architecture, and editor automation. 
 
-Always use tools when you need to see or change files. 
-Project Blueprint Context:
+### YOUR CAPABILITIES
+You can interact with the project directly using XML tags. Be precise and proactive.
+- <list_files path="res://scripts/" />: Lists files in a directory.
+- <search_files pattern="REGEX" />: Searches all files for a pattern.
+- <read_file path="res://player.gd" />: Reads full file content.
+- <write_file path="res://new.gd">CONTENT</write_file>: Creates/Overwrites a file.
+- <patch_file path="res://player.gd" search="OLD_CODE" replace="NEW_CODE" />: Edits specifically inside a file. USE THIS for small fixes to avoid overwriting all code.
+- <open_scene path="res://level.tscn" />: Opens a scene in the Godot editor.
+- <open_script path="res://main.gd" />: Opens a script for editing.
+- <run_project />: Plays the current project.
+- <update_blueprint>NEW_BLUEPRINT_CONTENT</update_blueprint>: Updates the project's long-term memory.
+
+### GUIDELINES
+1. Always start by exploring: use `list_files` or `read_file` to understand context.
+2. Prefer `patch_file` for minor changes.
+3. If creating new systems, updated the Blueprint first.
+4. Stay technical, concise, and professional.
+
+Current Project Blueprint:
 """ + blueprint
-		final_context = tool_defs + "\n\nUser System Prompt:\n" + final_context
+		final_context = tool_defs + "\n\nUser Notes:\n" + final_context
 
 	var request_data: Dictionary = provider_handlers[api_provider].build_request(
 		base_urls[api_provider],
@@ -167,16 +180,17 @@ func _on_request_completed():
 		_last_user_message = ""
 	
 	# Agentic Processing
-	if current_mode in ["code", "auto"] and AIAgentTools.parse_and_execute(full_res, get_parent()).size() > 0:
+	if current_mode in ["code", "auto"]:
 		var results = AIAgentTools.parse_and_execute(full_res, get_parent())
-		var result_msg = "Tool execution results:\n"
-		for r in results:
-			result_msg += JSON.stringify(r) + "\n"
-		
-		# Send results back to AI if in auto mode to get a final confirmation
-		if current_mode == "auto":
-			send_chat_request("Observe these results and provide a final summary or next steps: " + result_msg)
-			return
+		if results.size() > 0:
+			print("AI Assistant executed %d tools" % results.size())
+			var result_msg = "Tool execution results:\n"
+			for r in results:
+				result_msg += JSON.stringify(r) + "\n"
+			
+			if current_mode == "auto":
+				send_chat_request("Observe these results and provide a final summary or next steps: " + result_msg)
+				return
 		
 	if sse_client:
 		sse_client.queue_free()

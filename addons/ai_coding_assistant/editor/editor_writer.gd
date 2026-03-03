@@ -72,3 +72,10 @@ func delete_file(path: String) -> bool:
 	if not FileAccess.file_exists(path): return false
 	var err = DirAccess.remove_absolute(path)
 	return err == OK
+
+func patch_file(path: String, search_text: String, replace_text: String) -> bool:
+	var content = reader.read_file(path)
+	if content.is_empty() or not search_text in content: return false
+	
+	var new_content = content.replace(search_text, replace_text)
+	return write_file(path, new_content)
