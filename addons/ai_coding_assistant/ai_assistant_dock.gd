@@ -86,6 +86,7 @@ func _setup_ui():
 	settings_ui.provider_changed.connect(_on_provider_changed)
 	settings_ui.model_changed.connect(_on_model_changed)
 	settings_ui.api_key_changed.connect(_on_api_key_changed)
+	settings_ui.context_changed.connect(_on_context_changed)
 	settings_panel.add_child(settings_ui)
 	
 	settings_ui.setup_providers(api_manager.get_provider_list())
@@ -104,6 +105,7 @@ func _setup_ui():
 	chat_ui = ChatSection.new()
 	chat_ui.message_sent.connect(_on_chat_sent)
 	chat_ui.stop_requested.connect(_on_stop_requested)
+	chat_ui.clear_requested.connect(_on_clear_requested)
 	chat_container.add_child(chat_ui)
 
 	# Code Output
@@ -153,6 +155,13 @@ func _on_api_key_changed(key: String):
 	api_manager.set_api_key(key)
 	_save_settings()
 
+func _on_context_changed(context: String):
+	api_manager.global_context = context
+	_save_settings()
+
+func _on_clear_requested():
+	api_manager.clear_history()
+
 func _on_apply_code(code: String):
 	if editor_integration:
 		editor_integration.insert_code_at_cursor(code)
@@ -171,6 +180,7 @@ func _save_settings():
 	config.set_value("ai_assistant", "api_key", api_manager.api_key)
 	config.set_value("ai_assistant", "provider", api_manager.api_provider)
 	config.set_value("ai_assistant", "model", api_manager.current_model)
+	config.set_value("ai_assistant", "global_context", api_manager.global_context)
 	config.save("user://ai_assistant_settings.cfg")
 
 func _load_settings():
@@ -179,13 +189,16 @@ func _load_settings():
 		var key = config.get_value("ai_assistant", "api_key", "")
 		var prov = config.get_value("ai_assistant", "provider", "gemini")
 		var model = config.get_value("ai_assistant", "model", "")
+		var context = config.get_value("ai_assistant", "global_context", "")
 		
 		api_manager.set_api_key(key)
 		api_manager.set_provider(prov)
 		if not model.is_empty(): api_manager.set_model(model)
+		api_manager.global_context = context
 		
 		settings_ui.set_api_key(key)
 		settings_ui.set_model(api_manager.current_model)
+		settings_ui.set_global_context(context)
 		chat_ui.set_model_label(api_manager.current_model)
 		
 		var providers = api_manager.get_provider_list()
