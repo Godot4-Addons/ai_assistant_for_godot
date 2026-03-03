@@ -12,12 +12,12 @@ static func get_base_url() -> String:
 static func get_default_model() -> String:
 	return "claude-3-5-sonnet-20241022"
 
-static func build_request(base_url: String, api_key: String, model: String, message: String, context: String) -> Dictionary:
-	var user_text = BaseProvider.combine_prompt(message, context)
+static func build_request(base_url: String, api_key: String, model: String, message: String, history: Array, system_prompt: String) -> Dictionary:
 	var body = {
 		"model": model,
 		"max_tokens": 2048,
-		"messages": [ {"role": "user", "content": user_text}]
+		"system": system_prompt,
+		"messages": BaseProvider.build_chat_messages(message, history, "") # don't include system in messages
 	}
 	return {
 		"url": base_url + "messages",
