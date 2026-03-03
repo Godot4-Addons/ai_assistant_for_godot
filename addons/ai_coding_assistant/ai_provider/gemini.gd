@@ -12,14 +12,30 @@ static func get_base_url() -> String:
 static func get_default_model() -> String:
 	return "gemini-2.5-flash"
 
-static func build_request(base_url: String, api_key: String, model: String, message: String, context: String) -> Dictionary:
-	var prompt = BaseProvider.combine_prompt(message, context)
+static func build_request(base_url: String, api_key: String, model: String, message: String, history: Array, system_prompt: String) -> Dictionary:
+	var contents: Array = []
+	for entry in history:
+		var gemini_role = "model" if entry["role"] == "assistant" else "user"
+		contents.append({
+			"role": gemini_role,
+			"parts": [ {"text": entry["content"]}]
+		})
+	
+	if not system_prompt.is_empty():
+		# Gemini handles system prompts separately in some versions, but 
+		# for simplicity we'll prepend it if history is empty or as a user message
+		contents.insert(0, {
+			"role": "user",
+			"parts": [ {"text": "System instructions: " + system_prompt}]
+		})
+		
+	contents.append({
+		"role": "user",
+		"parts": [ {"text": message}]
+	})
+
 	var body = {
-		"contents": [ {
-			"parts": [ {
-				"text": prompt
-			}]
-		}]
+		"contents": contents
 	}
 	return {
 		"url": base_url + model + ":generateContent?key=" + api_key,
