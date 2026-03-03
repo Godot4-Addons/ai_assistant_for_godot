@@ -15,6 +15,14 @@ const COLOR_BG_MUTED = Color("#334155") # Slate 700
 const COLOR_CODE_BG = Color("#0f172a") # Slate 950 (Darker for code)
 const COLOR_QUOTE_BAR = Color("#475569") # Slate 600
 
+# Syntax Highlighting
+const COLOR_SYNTAX_KEYWORD = Color("#3b82f6") # Blue 500
+const COLOR_SYNTAX_FUNCTION = Color("#60a5fa") # Blue 400
+const COLOR_SYNTAX_STRING = Color("#eab308") # Yellow 500
+const COLOR_SYNTAX_COMMENT = Color("#9ca3af") # Slate 400
+const COLOR_SYNTAX_NUMBER = Color("#a855f7") # Purple 500
+const COLOR_SYNTAX_MEMBER = Color("#10b981") # Emerald 500
+
 # Spacing & Radii
 const SPACING_MAIN = 12
 const SPACING_SMALL = 6

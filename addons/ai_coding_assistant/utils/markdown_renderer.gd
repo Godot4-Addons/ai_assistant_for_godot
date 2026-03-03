@@ -69,13 +69,76 @@ static func _add_code_segment(vbox: VBoxContainer, code: String, lang: String):
 	
 	var code_label = RichTextLabel.new()
 	code_label.bbcode_enabled = true
-	# Escape BBCode characters inside code segments
-	var escaped_code = code.replace("[", "[lb]").replace("]", "[rb]")
-	code_label.text = "[code]" + escaped_code + "[/code]"
+	
+	var displayed_code = code
+	if lang.to_lower() in ["gdscript", "gd"]:
+		displayed_code = highlight_gdscript(code)
+	else:
+		# Escape BBCode characters inside generic code segments
+		displayed_code = "[code]" + code.replace("[", "[lb]").replace("]", "[rb]") + "[/code]"
+		
+	code_label.text = displayed_code
 	code_label.fit_content = true
 	code_label.selection_enabled = true
 	code_label.add_theme_font_size_override("normal_font_size", 12)
 	inner_vbox.add_child(code_label)
+
+static func highlight_gdscript(code: String) -> String:
+	var bbcode = code.replace("[", "[lb]").replace("]", "[rb]")
+	var regex = RegEx.new()
+	
+	# Pass 1: Comments (Protect them)
+	var comments = []
+	regex.compile("#.*")
+	var result = regex.search_all(bbcode)
+	for i in range(result.size()):
+		var m = result[result.size() - 1 - i]
+		var placeholder = "{C%d}" % i
+		comments.append("[color=" + AppTheme.COLOR_SYNTAX_COMMENT.to_html() + "]" + m.get_string() + "[/color]")
+		bbcode = bbcode.erase(m.get_start(), m.get_string().length())
+		bbcode = bbcode.insert(m.get_start(), placeholder)
+
+	# Pass 2: Strings (Protect them)
+	var strings = []
+	regex.compile("\".*?\"|'.*?'")
+	result = regex.search_all(bbcode)
+	for i in range(result.size()):
+		var m = result[result.size() - 1 - i]
+		var placeholder = "{S%d}" % i
+		strings.append("[color=" + AppTheme.COLOR_SYNTAX_STRING.to_html() + "]" + m.get_string() + "[/color]")
+		bbcode = bbcode.erase(m.get_start(), m.get_string().length())
+		bbcode = bbcode.insert(m.get_start(), placeholder)
+
+	# Keywords
+	var keywords = [
+		"extends", "class_name", "const", "var", "func", "static", "onready",
+		"if", "elif", "else", "for", "while", "match", "return", "pass",
+		"break", "continue", "and", "or", "not", "in", "is", "as", "yield",
+		"await", "signal", "enum", "export", "tool", "breakpoint", "self"
+	]
+	var kw_pattern = "\\b(" + "|".join(keywords) + ")\\b"
+	regex.compile(kw_pattern)
+	bbcode = regex.sub(bbcode, "[color=" + AppTheme.COLOR_SYNTAX_KEYWORD.to_html() + "]$1[/color]", true)
+	
+	# Numbers
+	regex.compile("\\b\\d+\\.?\\d*\\b")
+	bbcode = regex.sub(bbcode, "[color=" + AppTheme.COLOR_SYNTAX_NUMBER.to_html() + "]$0[/color]", true)
+	
+	# Functions
+	regex.compile("(\\b[a-zA-Z_][a-zA-Z0-9_]*\\b)\\s*\\(")
+	bbcode = regex.sub(bbcode, "[color=" + AppTheme.COLOR_SYNTAX_FUNCTION.to_html() + "]$1[/color](", true)
+	
+	# Member variables/Dots
+	regex.compile("\\.([a-zA-Z_][a-zA-Z0-9_]*\\b)")
+	bbcode = regex.sub(bbcode, ".[color=" + AppTheme.COLOR_SYNTAX_MEMBER.to_html() + "]$1[/color]", true)
+
+	# Restore Strings and Comments
+	for i in range(strings.size()):
+		bbcode = bbcode.replace("{S%d}" % i, strings[i])
+	for i in range(comments.size()):
+		bbcode = bbcode.replace("{C%d}" % i, comments[i])
+		
+	return "[code]" + bbcode + "[/code]"
 
 static func to_bbcode(markdown: String) -> String:
 	var bbcode = markdown
