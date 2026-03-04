@@ -70,6 +70,75 @@ var hr_color: Color = Color.WHITE
 var code_block_bg_color := "0f172a" # Dark slate for code background
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Segment Splitting (pre-parse)
+# ─────────────────────────────────────────────────────────────────────────────
+
+## Splits raw markdown into segments: [{type:"text", content:""}, {type:"code", language:"", content:""}]
+## This allows the UI to render code blocks as separate styled containers.
+static func split_segments(source_text: String) -> Array:
+	var segments := []
+	var lines := source_text.split("\n")
+	var current_text_lines: PackedStringArray = []
+	var current_code_lines: PackedStringArray = []
+	var in_code := false
+	var code_lang := ""
+	var fence_char := ""
+	var fence_count := 0
+
+	for line in lines:
+		var stripped := line.strip_edges()
+		if not in_code:
+			# Check for opening fence
+			var bc := _static_count_fence(stripped, "`")
+			var tc := _static_count_fence(stripped, "~")
+			if bc >= 3:
+				# Flush current text
+				if current_text_lines.size() > 0:
+					segments.append({"type": "text", "content": "\n".join(current_text_lines)})
+					current_text_lines = PackedStringArray()
+				in_code = true
+				fence_char = "`"
+				fence_count = bc
+				code_lang = stripped.substr(bc).strip_edges().to_lower()
+				current_code_lines = PackedStringArray()
+			elif tc >= 3:
+				if current_text_lines.size() > 0:
+					segments.append({"type": "text", "content": "\n".join(current_text_lines)})
+					current_text_lines = PackedStringArray()
+				in_code = true
+				fence_char = "~"
+				fence_count = tc
+				code_lang = stripped.substr(tc).strip_edges().to_lower()
+				current_code_lines = PackedStringArray()
+			else:
+				current_text_lines.append(line)
+		else:
+			# Check for closing fence
+			var cc := _static_count_fence(stripped, fence_char)
+			if cc >= fence_count and stripped == fence_char.repeat(cc):
+				segments.append({"type": "code", "language": code_lang, "content": "\n".join(current_code_lines)})
+				current_code_lines = PackedStringArray()
+				in_code = false
+			else:
+				current_code_lines.append(line)
+
+	# Flush remaining
+	if in_code and current_code_lines.size() > 0:
+		segments.append({"type": "code", "language": code_lang, "content": "\n".join(current_code_lines)})
+	if current_text_lines.size() > 0:
+		segments.append({"type": "text", "content": "\n".join(current_text_lines)})
+	return segments
+
+static func _static_count_fence(stripped_line: String, character: String) -> int:
+	var count := 0
+	for c in stripped_line:
+		if c == character:
+			count += 1
+		else:
+			break
+	return count
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main Parse Loop
 # ─────────────────────────────────────────────────────────────────────────────
 

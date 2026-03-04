@@ -4,6 +4,7 @@ class_name AIChatMessage
 
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
 const MarkdownLabelClass = preload("res://addons/ai_coding_assistant/markdownlabel/markdownlabel.gd")
+const SyntaxHighlighter = preload("res://addons/ai_coding_assistant/markdownlabel/syntax_highlighter.gd")
 
 var sender_label: Label
 var time_label: Label
@@ -11,6 +12,7 @@ var body_container: VBoxContainer
 var _full_text: String = ""
 var _is_streaming: bool = false
 var _stream_label: RichTextLabel = null
+var _highlighter = SyntaxHighlighter.new()
 
 func _init(sender: String, content: String, color: Color):
 	_setup_ui(sender, content, color)
@@ -41,7 +43,7 @@ func _setup_ui(sender: String, content: String, color: Color):
 	header.add_child(time_label)
 	
 	body_container = VBoxContainer.new()
-	body_container.add_theme_constant_override("separation", 6)
+	body_container.add_theme_constant_override("separation", 4)
 	vbox.add_child(body_container)
 	
 	set_content(content)
@@ -50,6 +52,18 @@ func set_content(text: String):
 	_full_text = text
 	for child in body_container.get_children():
 		child.queue_free()
+	
+	var segments: Array = AIMarkdownParser.split_segments(_full_text)
+	for seg in segments:
+		if seg.type == "code":
+			_add_code_block(seg.language, seg.content)
+		elif seg.type == "text":
+			var content_str: String = seg.content
+			if content_str.strip_edges().is_empty():
+				continue
+			_add_markdown_label(content_str)
+
+func _add_markdown_label(content: String) -> void:
 	var md_label = MarkdownLabelClass.new()
 	md_label.fit_content = true
 	md_label.selection_enabled = true
@@ -57,7 +71,113 @@ func set_content(text: String):
 	md_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	md_label.add_theme_font_size_override("normal_font_size", 12)
 	body_container.add_child(md_label)
-	md_label.markdown_text = _full_text
+	md_label.markdown_text = content
+
+func _add_code_block(language: String, code: String) -> void:
+	# Outer panel with dark bg, rounded corners, border
+	var panel = PanelContainer.new()
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("#0d1117") # GitHub dark bg
+	style.border_color = Color("#30363d") # Subtle border
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	style.content_margin_left = 0
+	style.content_margin_right = 0
+	style.content_margin_top = 0
+	style.content_margin_bottom = 0
+	panel.add_theme_stylebox_override("panel", style)
+	body_container.add_child(panel)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 0)
+	panel.add_child(vbox)
+	
+	# Header bar with language label + copy button
+	var header_bar = PanelContainer.new()
+	var header_style = StyleBoxFlat.new()
+	header_style.bg_color = Color("#161b22") # Slightly lighter header
+	header_style.corner_radius_top_left = 6
+	header_style.corner_radius_top_right = 6
+	header_style.content_margin_left = 12
+	header_style.content_margin_right = 8
+	header_style.content_margin_top = 6
+	header_style.content_margin_bottom = 6
+	header_bar.add_theme_stylebox_override("panel", header_style)
+	vbox.add_child(header_bar)
+	
+	var header_hbox = HBoxContainer.new()
+	header_bar.add_child(header_hbox)
+	
+	# Language label
+	var lang_label = Label.new()
+	lang_label.text = language if language != "" else "code"
+	lang_label.add_theme_color_override("font_color", Color("#8b949e"))
+	lang_label.add_theme_font_size_override("font_size", 10)
+	header_hbox.add_child(lang_label)
+	
+	header_hbox.add_spacer(false)
+	
+	# Copy button
+	var copy_btn = Button.new()
+	copy_btn.text = "  📋 Copy  "
+	copy_btn.flat = true
+	copy_btn.add_theme_font_size_override("font_size", 10)
+	copy_btn.add_theme_color_override("font_color", Color("#8b949e"))
+	copy_btn.add_theme_color_override("font_hover_color", Color("#c9d1d9"))
+	copy_btn.pressed.connect(func(): _copy_code(code, copy_btn))
+	header_hbox.add_child(copy_btn)
+	
+	# Code content area
+	var code_panel = PanelContainer.new()
+	var code_style = StyleBoxFlat.new()
+	code_style.bg_color = Color("#0d1117")
+	code_style.corner_radius_bottom_left = 6
+	code_style.corner_radius_bottom_right = 6
+	code_style.content_margin_left = 12
+	code_style.content_margin_right = 12
+	code_style.content_margin_top = 8
+	code_style.content_margin_bottom = 8
+	code_panel.add_theme_stylebox_override("panel", code_style)
+	vbox.add_child(code_panel)
+	
+	var code_label = RichTextLabel.new()
+	code_label.bbcode_enabled = true
+	code_label.fit_content = true
+	code_label.scroll_active = false
+	code_label.selection_enabled = true
+	code_label.context_menu_enabled = true
+	code_label.deselect_on_focus_loss_enabled = true
+	code_label.add_theme_font_size_override("normal_font_size", 12)
+	code_label.add_theme_font_size_override("mono_font_size", 12)
+	code_label.add_theme_color_override("default_color", Color("#c9d1d9"))
+	code_label.add_theme_color_override("selection_color", Color(0.23, 0.51, 0.96, 0.35))
+	code_label.add_theme_color_override("font_selected_color", Color.WHITE)
+	code_panel.add_child(code_label)
+	
+	# Apply syntax highlighting
+	var escape_fn := func(text: String) -> String:
+		return text.replace("[", "\uFFFD").replace("]", "[rb]").replace("\uFFFD", "[lb]")
+	
+	if language != "":
+		code_label.text = "[code]" + _highlighter.highlight(code, language, escape_fn) + "[/code]"
+	else:
+		code_label.text = "[code]" + escape_fn.call(code) + "[/code]"
+
+func _copy_code(code: String, btn: Button) -> void:
+	DisplayServer.clipboard_set(code)
+	btn.text = "  ✅ Copied!  "
+	# Reset after 2 seconds
+	var timer = get_tree().create_timer(2.0)
+	timer.timeout.connect(func():
+		if is_instance_valid(btn):
+			btn.text = "  📋 Copy  "
+	)
 
 func append_content(new_text: String):
 	_full_text += new_text
@@ -74,7 +194,7 @@ func append_content(new_text: String):
 		_stream_label.add_theme_font_size_override("normal_font_size", 12)
 		_stream_label.add_theme_color_override("default_color", Color(0.8, 0.8, 0.8))
 		_stream_label.add_theme_color_override("selection_color", Color(0.23, 0.51, 0.96, 0.35))
-		_stream_label.add_theme_color_override("font_selected_color", Color(1.0, 1.0, 1.0, 1.0))
+		_stream_label.add_theme_color_override("font_selected_color", Color.WHITE)
 		body_container.add_child(_stream_label)
 	
 	_stream_label.text = _full_text
