@@ -245,6 +245,7 @@ func _tool_write_file(args: Dictionary) -> Dictionary:
 	if path.is_empty(): return {"error": "Missing path"}
 	if not _editor_integration: return {"error": "No editor integration"}
 	var ok: bool = _editor_integration.write_file(path, content)
+	if ok: _context.clear_cache()
 	return {"success": ok, "path": path}
 
 func _tool_patch_file(args: Dictionary) -> Dictionary:
@@ -255,6 +256,7 @@ func _tool_patch_file(args: Dictionary) -> Dictionary:
 	if not _editor_integration: return {"error": "No editor integration"}
 	var ok: bool = _editor_integration.patch_file(path, search, replace)
 	if not ok: return {"error": "patch_file failed — search text not found in: " + path}
+	_context.clear_cache()
 	return {"success": true, "path": path}
 
 func _tool_delete_file(args: Dictionary) -> Dictionary:
@@ -262,6 +264,7 @@ func _tool_delete_file(args: Dictionary) -> Dictionary:
 	if path.is_empty(): return {"error": "Missing path"}
 	if not _editor_integration: return {"error": "No editor integration"}
 	var ok: bool = _editor_integration.delete_file(path)
+	if ok: _context.clear_cache()
 	return {"success": ok, "path": path}
 
 func _tool_list_files(args: Dictionary) -> Dictionary:

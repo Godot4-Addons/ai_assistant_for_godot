@@ -11,8 +11,14 @@ const SKIP_DIRS: Array = [".godot", ".git", ".import", "addons"]
 
 var editor_interface: EditorInterface
 
+# Caching for low-resource environments
+var _cache: Dictionary = {}
+
 func _init(ei: EditorInterface = null) -> void:
 	editor_interface = ei
+
+func clear_cache() -> void:
+	_cache.clear()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Full Project Context
@@ -20,20 +26,32 @@ func _init(ei: EditorInterface = null) -> void:
 
 ## Build a complete structured project context string for the AI system prompt
 func build_project_context() -> String:
+	if _cache.has("project_context"):
+		return _cache["project_context"]
+		
 	var parts: Array[String] = ["## PROJECT CONTEXT"]
 	parts.append(_get_project_info())
 	parts.append(_get_file_tree("res://", 0))
 	if editor_interface:
 		parts.append(_get_open_files())
-	return "\n\n".join(parts)
+		
+	var result := "\n\n".join(parts)
+	_cache["project_context"] = result
+	return result
 
 ## Build a lightweight context (just structure, no file contents)
 func build_quick_context() -> String:
+	if _cache.has("quick_context"):
+		return _cache["quick_context"]
+		
 	var parts: Array[String] = ["## PROJECT OVERVIEW"]
 	parts.append(_get_project_info())
 	parts.append(_get_scene_list())
 	parts.append(_get_script_list())
-	return "\n\n".join(parts)
+	
+	var result := "\n\n".join(parts)
+	_cache["quick_context"] = result
+	return result
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Project Info
