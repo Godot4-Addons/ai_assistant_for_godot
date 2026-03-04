@@ -33,6 +33,8 @@ var agent_loop: AIAgentLoop = null
 var _sse_client # SSEClient
 var _current_full_response: String = ""
 var _last_user_message: String = ""
+var _is_cancelling: bool = false # Guard against re-entrant cancel calls
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Signals
@@ -131,11 +133,18 @@ func send_agent_request(message: String, system_context: String, history: Array)
 	_send_raw_request(message, system_context, history, true)
 
 func cancel_request() -> void:
-	if current_mode in ["code", "auto"] and agent_loop:
-		agent_loop.stop()
-	elif _sse_client:
+	if _is_cancelling:
+		return
+	_is_cancelling = true
+	# Cancel the SSE directly — do NOT call agent_loop.stop() here.
+	# The dock's _on_stop_requested calls agent_loop.stop() separately.
+	if _sse_client:
 		_sse_client.cancel()
-		_on_request_completed()
+		_sse_client.queue_free()
+		_sse_client = null
+	_current_full_response = ""
+	_last_user_message = ""
+	_is_cancelling = false
 
 func clear_history() -> void:
 	chat_history.clear()
@@ -206,8 +215,8 @@ func _on_error_received(error_message: String) -> void:
 	if _sse_client:
 		_sse_client.queue_free()
 		_sse_client = null
-	# Forward to agent if running
-	if agent_loop and agent_loop.state != AIAgentLoop.State.IDLE:
+	# Don't forward errors to an already-idle agent
+	if agent_loop and is_instance_valid(agent_loop) and agent_loop.state != AIAgentLoop.State.IDLE:
 		agent_loop.on_error_received(error_message)
 	else:
 		error_occurred.emit(error_message)
@@ -217,11 +226,16 @@ func _on_request_completed() -> void:
 	_current_full_response = ""
 
 	if _sse_client:
-		_sse_client.queue_free()
+		if is_instance_valid(_sse_client):
+			_sse_client.queue_free()
 		_sse_client = null
 
+	# If being cancelled or agent already went idle, skip agent callback
+	if _is_cancelling:
+		return
+
 	# If agent loop is active, hand response to it
-	if agent_loop and agent_loop.state != AIAgentLoop.State.IDLE:
+	if agent_loop and is_instance_valid(agent_loop) and agent_loop.state != AIAgentLoop.State.IDLE:
 		agent_loop.on_response_received(full_res)
 		return
 
@@ -229,7 +243,7 @@ func _on_request_completed() -> void:
 	if not _last_user_message.is_empty() and not full_res.is_empty():
 		chat_history.append({"role": "user", "content": _last_user_message})
 		chat_history.append({"role": "assistant", "content": full_res})
-		_last_user_message = ""
+	_last_user_message = ""
 
 	response_received.emit(full_res)
 

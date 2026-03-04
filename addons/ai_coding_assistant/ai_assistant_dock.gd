@@ -121,9 +121,15 @@ func _on_chat_sent(msg: String) -> void:
 	api_manager.send_chat_request(msg)
 
 func _on_stop_requested() -> void:
+	# Stop agent first (handles its own SSE cancel internally)
+	if api_manager.agent_loop and is_instance_valid(api_manager.agent_loop):
+		api_manager.agent_loop.stop()
+	# Then clean up any remaining SSE (safe: api_manager.cancel_request does NOT call agent_loop.stop)
 	api_manager.cancel_request()
+	chat_ui.finish_streaming()
 	chat_ui.set_streaming_state(false)
 	chat_ui.clear_agent_status()
+
 
 func _on_chunk_received(chunk: String) -> void:
 	var sender := "Assistant" if api_manager.current_mode == "chat" else "🤖 Agent"

@@ -276,8 +276,9 @@ func _remove_thinking() -> void:
 
 func _scroll_to_bottom() -> void:
 	await get_tree().process_frame
-	if scroll_container:
-		scroll_container.scroll_vertical = scroll_container.get_v_scroll_bar().max_value
+	if not is_inside_tree() or not is_instance_valid(scroll_container):
+		return
+	scroll_container.scroll_vertical = scroll_container.get_v_scroll_bar().max_value
 
 func clear_chat() -> void:
 	for child in chat_display.get_children():

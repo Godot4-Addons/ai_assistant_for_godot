@@ -40,6 +40,9 @@ var max_iterations: int = 15
 var enable_planning: bool = true
 var auto_save_memory: bool = true
 
+## Internal guard to prevent re-entrant stop calls
+var _is_stopping: bool = false
+
 func _init(api_manager, editor_integration, editor_interface = null) -> void:
 	_api_manager = api_manager
 	_loop_guard = LoopGuard.new()
@@ -78,10 +81,17 @@ func run(task: String) -> void:
 
 	_send_to_ai(task)
 
-## Stop the agent mid-loop
+## Stop the agent mid-loop — safe to call from any context
 func stop() -> void:
-	_api_manager.cancel_request()
-	_force_stop("Stopped by user.")
+	if _is_stopping:
+		return
+	_is_stopping = true
+	# Cancel the SSE client directly — do NOT call api_manager.cancel_request()
+	# to avoid the circular call: cancel_request → stop → cancel_request → ∞
+	if _api_manager and _api_manager._sse_client:
+		_api_manager._sse_client.cancel()
+	_finish_with_message("[Agent stopped by user.]")
+	_is_stopping = false
 
 ## Called by api_manager when a streaming chunk arrives
 func on_chunk_received(chunk: String) -> void:
@@ -95,6 +105,8 @@ func on_response_received(response: String) -> void:
 
 ## Called by api_manager when an error occurs
 func on_error_received(error: String) -> void:
+	if state == State.IDLE:
+		return
 	_set_state(State.ERROR)
 	agent_error.emit("API Error: " + error)
 	_set_state(State.IDLE)
@@ -152,11 +164,19 @@ func _process_response(response: String) -> void:
 
 		step_started.emit(_loop_guard.get_iteration(), "🔧 %s" % tool_name)
 
-		# Execute
-		var result := _tools.execute_tool(tool_name, args)
+		# Execute with error wrapping
+		var result: Dictionary = {}
+		if _tools and _permissions:
+			result = _tools.execute_tool(tool_name, args)
+		else:
+			result = {"error": "Tool system unavailable"}
 		_memory.add_tool_result(tool_name, args, result)
 		var result_str := _tools.format_result_for_prompt(tool_name, args, result)
 		tool_results.append(result_str)
+
+		# Safety check — if stopped while executing tools, abort
+		if state == State.IDLE:
+			return
 
 	# Feed results back as the next message
 	_set_state(State.WAITING_RESPONSE)
@@ -214,8 +234,14 @@ func _finish_with_message(response: String) -> void:
 	_set_state(State.IDLE)
 
 func _force_stop(reason: String) -> void:
-	_api_manager.cancel_request()
+	if _is_stopping:
+		return
+	_is_stopping = true
+	# Cancel SSE directly — never call cancel_request() here (causes circular call)
+	if _api_manager and _api_manager._sse_client:
+		_api_manager._sse_client.cancel()
 	_finish_with_message("[Agent stopped: %s]\n\n%s" % [reason, _current_response])
+	_is_stopping = false
 
 func _set_state(new_state: State) -> void:
 	state = new_state
