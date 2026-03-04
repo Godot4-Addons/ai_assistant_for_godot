@@ -2,191 +2,237 @@
 extends Node
 class_name AIApiManager
 
+## AI API Manager — handles provider routing and mode delegation.
+## In chat mode: direct streaming response.
+## In code/auto modes: delegates to AIAgentLoop.
+
 # Provider preloads
 const GeminiProvider = preload("res://addons/ai_coding_assistant/ai_provider/gemini.gd")
 const GPTProvider = preload("res://addons/ai_coding_assistant/ai_provider/gpt.gd")
 const AnthropicProvider = preload("res://addons/ai_coding_assistant/ai_provider/anthropic.gd")
 const GroqProvider = preload("res://addons/ai_coding_assistant/ai_provider/groq.gd")
 const OpenRouterProvider = preload("res://addons/ai_coding_assistant/ai_provider/openrouter.gd")
+const AgentLoopClass = preload("res://addons/ai_coding_assistant/agent/agent_loop.gd")
 
-# API configuration
+# API state
 var api_key: String = ""
 var api_provider: String = "gemini"
 var current_model: String = ""
 var provider_handlers: Dictionary = {}
 var base_urls: Dictionary = {}
+var global_context: String = ""
+var current_mode: String = "chat"
+
+# History (chat mode only; agent loop has its own memory)
+var chat_history: Array = []
+
+# Agent loop (created on demand for code/auto modes)
+var agent_loop: AIAgentLoop = null
+
+# Internal streaming state
+var _sse_client # SSEClient
+var _current_full_response: String = ""
+var _last_user_message: String = ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Signals
+# ─────────────────────────────────────────────────────────────────────────────
 
 signal chunk_received(chunk: String)
 signal response_received(response: String)
 signal error_occurred(error: String)
 
-var sse_client: SSEClient
-var _current_full_response: String = ""
-var chat_history: Array = []
-var global_context: String = ""
-var current_mode: String = "chat"
-var _last_user_message: String = ""
+## Agent-specific signals (forwarded from agent_loop)
+signal agent_status_changed(state: int, message: String)
+signal agent_tool_executed(tool_name: String, args: Dictionary, result: Dictionary, message: String)
+signal agent_thinking(message: String)
+signal agent_finished(response: String)
+signal agent_permission_needed(tool_name: String, args: Dictionary, description: String, callback: Callable)
 
-func _init():
+# ─────────────────────────────────────────────────────────────────────────────
+# Init
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _init() -> void:
 	_init_providers()
 	api_provider = "gemini"
 	current_model = GeminiProvider.get_default_model()
 
-func _ready():
-	pass
-
-func _init_providers():
-	var providers = [
-		GeminiProvider,
-		GPTProvider,
-		AnthropicProvider,
-		GroqProvider,
-		OpenRouterProvider
-	]
-	
+func _init_providers() -> void:
+	var providers = [GeminiProvider, GPTProvider, AnthropicProvider, GroqProvider, OpenRouterProvider]
 	for provider in providers:
-		var pname = provider.get_name()
+		var pname: String = provider.get_name()
 		provider_handlers[pname] = provider
 		base_urls[pname] = provider.get_base_url()
 
-func set_api_key(key: String):
-	api_key = key
+# ─────────────────────────────────────────────────────────────────────────────
+# Configuration
+# ─────────────────────────────────────────────────────────────────────────────
 
-func set_provider(provider: String):
+func set_api_key(key: String) -> void:
+	api_key = key
+	if agent_loop:
+		# Re-create agent loop with new key — it uses api_manager methods so no direct key storage
+		pass
+
+func set_provider(provider: String) -> void:
 	if provider in provider_handlers:
 		api_provider = provider
 		current_model = provider_handlers[provider].get_default_model()
-		print("Provider set to: ", provider)
 	else:
-		push_error("Unsupported API provider: " + provider)
+		push_error("Unsupported provider: " + provider)
 
-func set_model(model_name: String):
+func set_model(model_name: String) -> void:
 	current_model = model_name
-	print("Model set to: ", current_model)
 
 func get_provider_list() -> Array:
 	return provider_handlers.keys()
 
-func send_chat_request(message: String, context: String = ""):
+# ─────────────────────────────────────────────────────────────────────────────
+# Agent Loop Setup
+# ─────────────────────────────────────────────────────────────────────────────
+
+## Call this once from the dock after editor_integration is ready
+func setup_agent(editor_integration, editor_interface = null) -> void:
+	if agent_loop:
+		agent_loop.queue_free()
+	agent_loop = AgentLoopClass.new(self , editor_integration, editor_interface)
+	add_child(agent_loop)
+
+	agent_loop.status_changed.connect(func(s, m): agent_status_changed.emit(s, m))
+	agent_loop.tool_executed.connect(func(tn, a, r, m): agent_tool_executed.emit(tn, a, r, m))
+	agent_loop.agent_thinking.connect(func(m): agent_thinking.emit(m))
+	agent_loop.agent_finished.connect(_on_agent_finished)
+	agent_loop.agent_error.connect(func(err): error_occurred.emit(err))
+	agent_loop.permission_needed.connect(func(tn, a, d, cb): agent_permission_needed.emit(tn, a, d, cb))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public Chat API
+# ─────────────────────────────────────────────────────────────────────────────
+
+func send_chat_request(message: String, context: String = "") -> void:
 	if api_key.is_empty():
 		error_occurred.emit("API key not set for " + api_provider)
 		return
 
-	_current_full_response = ""
-
-	if not provider_handlers.has(api_provider):
-		error_occurred.emit("Unsupported provider: " + api_provider)
+	# Route to agent in code/auto mode
+	if current_mode in ["code", "auto"]:
+		if not agent_loop:
+			error_occurred.emit("Agent loop not initialized. Please restart the dock.")
+			return
+		agent_loop.run(message)
 		return
 
-	var model_to_use = current_model
+	# Chat mode — direct streaming
+	_send_raw_request(message, context, chat_history)
+
+## Send a raw request on behalf of the agent loop (called by agent_loop internally)
+func send_agent_request(message: String, system_context: String, history: Array) -> void:
+	_send_raw_request(message, system_context, history, true)
+
+func cancel_request() -> void:
+	if current_mode in ["code", "auto"] and agent_loop:
+		agent_loop.stop()
+	elif _sse_client:
+		_sse_client.cancel()
+		_on_request_completed()
+
+func clear_history() -> void:
+	chat_history.clear()
+
+func generate_code(prompt: String, language: String = "gdscript") -> void:
+	var ctx := "Generate clean %s code. Only return code." % language
+	send_chat_request(prompt, ctx)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Internal Request Handling
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _send_raw_request(message: String, context: String, history: Array, is_agent: bool = false) -> void:
+	_current_full_response = ""
+	_last_user_message = message
+
+	var persona_manager = preload("res://addons/ai_coding_assistant/persona/persona_manager.gd")
+	var blueprint := ""
+	if current_mode in ["code", "auto"] and not is_agent:
+		blueprint = AIProjectBlueprint.get_blueprint()
+
+	var final_context := context
+	if not is_agent:
+		final_context = persona_manager.get_full_context(current_mode, context if not context.is_empty() else global_context, blueprint)
+
+	var model_to_use := current_model
 	if model_to_use.is_empty():
 		model_to_use = provider_handlers[api_provider].get_default_model()
 
-	var persona_manager = preload("res://addons/ai_coding_assistant/persona/persona_manager.gd")
-	var blueprint = ""
-	if current_mode in ["code", "auto"]:
-		blueprint = AIProjectBlueprint.get_blueprint()
-	
-	var final_context = persona_manager.get_full_context(current_mode, context if not context.is_empty() else global_context, blueprint)
-
 	var request_data: Dictionary = provider_handlers[api_provider].build_request(
-		base_urls[api_provider],
-		api_key,
-		model_to_use,
-		message,
-		chat_history,
-		final_context
+		base_urls[api_provider], api_key, model_to_use, message, history, final_context
 	)
 
-	_last_user_message = message
-
-	# Inject streaming flag if applicable (OpenAI/Anthropic/OpenRouter style)
+	# Inject streaming flag
 	if request_data.has("body"):
-		var json = JSON.new()
-		var parse_res = json.parse(request_data["body"])
-		if parse_res == OK and typeof(json.data) == TYPE_DICTIONARY:
-			# Not ideal if provider explicitly doesn't support it, but universally true for these
+		var json := JSON.new()
+		if json.parse(request_data["body"]) == OK and typeof(json.data) == TYPE_DICTIONARY:
 			json.data["stream"] = true
 			request_data["body"] = JSON.stringify(json.data)
 
-	print(api_provider.capitalize(), " request to: ", request_data.get("url", ""))
-	
-	sse_client = SSEClient.new()
-	add_child(sse_client)
-	sse_client.chunk_received.connect(_on_chunk_received)
-	sse_client.request_completed.connect(_on_request_completed)
-	sse_client.error_occurred.connect(_on_error_received)
-	
-	sse_client.request(
+	var SSEClientClass = preload("res://addons/ai_coding_assistant/utils/sse_client.gd")
+	_sse_client = SSEClientClass.new()
+	add_child(_sse_client)
+	_sse_client.chunk_received.connect(_on_chunk_received)
+	_sse_client.request_completed.connect(_on_request_completed)
+	_sse_client.error_occurred.connect(_on_error_received)
+
+	_sse_client.request(
 		request_data.get("url", ""),
 		request_data.get("headers", []),
 		request_data.get("method", HTTPClient.METHOD_POST),
 		request_data.get("body", "")
 	)
 
-func cancel_request():
-	if sse_client:
-		sse_client.cancel()
-		_on_request_completed()
-
-func _on_chunk_received(chunk: String):
-	# Basic parse of standard OpenAI-format streaming chunk
+func _on_chunk_received(chunk: String) -> void:
 	if chunk == "[DONE]": return
-	
-	var json = JSON.new()
-	var err = json.parse(chunk)
-	if err == OK and typeof(json.data) == TYPE_DICTIONARY:
-		var txt = provider_handlers[api_provider].parse_stream_chunk(json.data)
+	var json := JSON.new()
+	if json.parse(chunk) == OK and typeof(json.data) == TYPE_DICTIONARY:
+		var txt := provider_handlers[api_provider].parse_stream_chunk(json.data)
 		if not txt.is_empty():
 			_current_full_response += txt
 			chunk_received.emit(txt)
+			# Forward to agent loop if it's running
+			if agent_loop and agent_loop.state != AIAgentLoop.State.IDLE:
+				agent_loop.on_chunk_received(txt)
 
-func _on_error_received(error_message: String):
-	if sse_client:
-		sse_client.queue_free()
-		sse_client = null
-	error_occurred.emit(error_message)
+func _on_error_received(error_message: String) -> void:
+	if _sse_client:
+		_sse_client.queue_free()
+		_sse_client = null
+	# Forward to agent if running
+	if agent_loop and agent_loop.state != AIAgentLoop.State.IDLE:
+		agent_loop.on_error_received(error_message)
+	else:
+		error_occurred.emit(error_message)
 
-func _on_request_completed():
-	var full_res = _current_full_response
+func _on_request_completed() -> void:
+	var full_res := _current_full_response
 	_current_full_response = ""
-	
+
+	if _sse_client:
+		_sse_client.queue_free()
+		_sse_client = null
+
+	# If agent loop is active, hand response to it
+	if agent_loop and agent_loop.state != AIAgentLoop.State.IDLE:
+		agent_loop.on_response_received(full_res)
+		return
+
+	# Chat mode — store history and emit
 	if not _last_user_message.is_empty() and not full_res.is_empty():
 		chat_history.append({"role": "user", "content": _last_user_message})
 		chat_history.append({"role": "assistant", "content": full_res})
 		_last_user_message = ""
-	
-	# Agentic Processing
-	if current_mode in ["code", "auto"]:
-		var results = AIAgentTools.parse_and_execute(full_res, get_parent())
-		if results.size() > 0:
-			print("AI Assistant executed %d tools" % results.size())
-			var result_msg = "Tool execution results:\n"
-			for r in results:
-				result_msg += JSON.stringify(r) + "\n"
-			
-			if current_mode == "auto":
-				send_chat_request("Observe these results and provide a final summary or next steps: " + result_msg)
-				return
-		
-	if sse_client:
-		sse_client.queue_free()
-		sse_client = null
+
 	response_received.emit(full_res)
 
-func clear_history():
-	chat_history.clear()
-
-func generate_code(prompt: String, language: String = "gdscript"):
-	var context = "Generate clean " + language + " code. Only return code."
-	send_chat_request(prompt, context)
-
-func explain_code(code: String):
-	var context = "Explain this code:"
-	send_chat_request(code, context)
-
-func suggest_improvements(code: String):
-	var context = "Suggest improvements for this code:"
-	send_chat_request(code, context)
-
-# Removed redundant _read_persona_file
+func _on_agent_finished(response: String) -> void:
+	response_received.emit(response)
+	agent_finished.emit(response)
