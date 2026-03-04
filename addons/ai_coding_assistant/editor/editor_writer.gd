@@ -77,5 +77,9 @@ func patch_file(path: String, search_text: String, replace_text: String) -> bool
 	var content = reader.read_file(path)
 	if content.is_empty() or not search_text in content: return false
 	
+	if content.begins_with("[Binary file omitted:"):
+		push_error("AI Assistant: Attempted to patch a binary file: " + path)
+		return false
+	
 	var new_content = content.replace(search_text, replace_text)
 	return write_file(path, new_content)

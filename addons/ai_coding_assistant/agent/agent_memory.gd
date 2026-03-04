@@ -216,6 +216,7 @@ func _ensure_memory_dir() -> void:
 		DirAccess.make_dir_recursive_absolute(MEMORY_DIR)
 
 func _write_persistent_memory() -> void:
+	_ensure_memory_dir()
 	var file := FileAccess.open(SESSION_FILE, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(_persistent_sessions, "\t"))

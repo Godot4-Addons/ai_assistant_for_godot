@@ -76,7 +76,7 @@ func check(tool_name: String, args: Dictionary) -> Dictionary:
 			}
 
 	# Overwrite protection for existing critical files
-	if (tool_name == "write_file" or tool_name == "delete_file") and not path.is_empty():
+	if (tool_name == "write_file" or tool_name == "patch_file" or tool_name == "delete_file") and not path.is_empty():
 		for protected in _protected_paths:
 			if path.ends_with(protected) or path.contains(protected):
 				return {
