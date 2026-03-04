@@ -3,7 +3,7 @@ extends PanelContainer
 class_name AIChatMessage
 
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
-const MarkdownRenderer = preload("res://addons/ai_coding_assistant/utils/markdown_renderer.gd")
+const MarkdownLabelClass = preload("res://addons/ai_coding_assistant/markdownlabel/markdownlabel.gd")
 
 var sender_label: Label
 var time_label: Label
@@ -48,7 +48,14 @@ func _setup_ui(sender: String, content: String, color: Color):
 
 func set_content(text: String):
 	_full_text = text
-	MarkdownRenderer.render_to_vbox(body_container, _full_text)
+	for child in body_container.get_children():
+		child.queue_free()
+	var md_label = MarkdownLabelClass.new()
+	md_label.fit_content = true
+	md_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	md_label.add_theme_font_size_override("normal_font_size", 12)
+	body_container.add_child(md_label)
+	md_label.markdown_text = _full_text
 
 func append_content(new_text: String):
 	_full_text += new_text
