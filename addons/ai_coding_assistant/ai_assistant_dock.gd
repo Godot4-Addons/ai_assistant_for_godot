@@ -126,9 +126,8 @@ func _on_stop_requested() -> void:
 	chat_ui.clear_agent_status()
 
 func _on_chunk_received(chunk: String) -> void:
-	# Only show streaming text in chat mode (agent handles its own display)
-	if api_manager.current_mode == "chat":
-		chat_ui.update_streaming_message("Assistant", chunk, AppTheme.COLOR_SUCCESS)
+	var sender := "Assistant" if api_manager.current_mode == "chat" else "🤖 Agent"
+	chat_ui.update_streaming_message(sender, chunk, AppTheme.COLOR_SUCCESS)
 
 func _on_response_received(response: String) -> void:
 	chat_ui.finish_streaming()
@@ -152,6 +151,8 @@ func _on_agent_thinking(message: String) -> void:
 	chat_ui.add_agent_note(message)
 
 func _on_agent_tool_executed(tool_name: String, args: Dictionary, result: Dictionary, message: String) -> void:
+	# Cap the streaming AI response card before inserting the tool result card
+	chat_ui.finish_streaming()
 	if not message.is_empty():
 		chat_ui.add_tool_card(tool_name, message, result.has("error"))
 
