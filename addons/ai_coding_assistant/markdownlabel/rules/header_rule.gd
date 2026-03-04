@@ -19,14 +19,14 @@ func process_line(line: String) -> String:
 			if _char != " ":
 				break
 			n_spaces += 1
-		var header_format: Resource = parser._get_header_format(n)
+		var header_format: Resource = parser.get_header_format(n)
 		var _start := result.get_start()
-		var opening_tags := parser._get_header_tags(header_format)
+		var opening_tags := parser.get_header_tags(header_format)
 		processed_line = processed_line.erase(_start, n + n_spaces).insert(_start, opening_tags)
 		var _end := result.get_end()
-		processed_line = processed_line.insert(_end - (n + n_spaces) + opening_tags.length(), parser._get_header_tags(header_format, true))
-		parser._debug("... header level %d" % n)
-		parser.header_anchor_paragraph[parser._get_header_reference(result.get_string())] = parser.current_paragraph
+		processed_line = processed_line.insert(_end - (n + n_spaces) + opening_tags.length(), parser.get_header_tags(header_format, true))
+		parser.debug("... header level %d" % n)
+		parser.header_anchor_paragraph[parser.get_header_reference(result.get_string())] = parser.current_paragraph
 		if header_format.get("draw_horizontal_rule"):
 			var version := Engine.get_version_info()
 			if version.hex >= 0x040500:

@@ -5,13 +5,13 @@ class_name AIMarkdownTableRule
 func process_line(line: String) -> String:
 	if line.count("|") < 2:
 		if parser.within_table:
-			parser._debug("... end of table")
+			parser.debug("... end of table")
 			parser.within_table = false
 			return "[/table]\n" + line
 		else:
 			return line
 			
-	parser._debug("... table row: " + line)
+	parser.debug("... table row: " + line)
 	parser.table_row += 1
 	var split_line := line.trim_prefix("|").trim_suffix("|").split("|")
 	var processed_line := ""
@@ -28,7 +28,7 @@ func process_line(line: String) -> String:
 				is_delimiter = false
 				break
 		if is_delimiter:
-			parser._debug("... delimiter row")
+			parser.debug("... delimiter row")
 			parser.skip_line_break = true
 			return ""
 	

@@ -77,7 +77,7 @@ func parse(source_text: String) -> String:
 
 	for line: String in lines:
 		line = line.trim_suffix("\r")
-		_debug("Parsing line: '%s'" % line)
+		debug("Parsing line: '%s'" % line)
 		
 		if current_line > 0 and not skip_line_break:
 			converted_text += "\n"
@@ -88,7 +88,7 @@ func parse(source_text: String) -> String:
 		var processed_line := line
 		
 		# Escape phase
-		processed_line = _process_escaped_characters(processed_line)
+		processed_line = process_escaped_characters(processed_line)
 		
 		# Rule phase
 		for rule in rules:
@@ -98,7 +98,7 @@ func parse(source_text: String) -> String:
 				
 		# Finalize line if not absorbed
 		if not processed_line.is_empty():
-			processed_line = _reset_escaped_chars(processed_line)
+			processed_line = reset_escaped_chars(processed_line)
 			converted_text += processed_line
 			
 	# Finalization phase (close open tags)
@@ -111,10 +111,10 @@ func parse(source_text: String) -> String:
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-func _escape_bbcode(source: String) -> String:
+func escape_bbcode(source: String) -> String:
 	return source.replacen("[", ESCAPE_PLACEHOLDER).replacen("]", "[rb]").replacen(ESCAPE_PLACEHOLDER, "[lb]")
 
-func _escape_chars(_text: String) -> String:
+func escape_chars(_text: String) -> String:
 	var escaped_text := _text
 	for _char: String in ESCAPEABLE_CHARACTERS:
 		if not _char in escaped_characters_map:
@@ -122,7 +122,7 @@ func _escape_chars(_text: String) -> String:
 		escaped_text = escaped_text.replacen(_char, ESCAPE_PLACEHOLDER % escaped_characters_map[_char])
 	return escaped_text
 
-func _reset_escaped_chars(_text: String, code := false) -> String:
+func reset_escaped_chars(_text: String, code := false) -> String:
 	var unescaped_text := _text
 	for _char in ESCAPEABLE_CHARACTERS:
 		if not _char in escaped_characters_map:
@@ -130,14 +130,14 @@ func _reset_escaped_chars(_text: String, code := false) -> String:
 		unescaped_text = unescaped_text.replacen(ESCAPE_PLACEHOLDER % escaped_characters_map[_char], "\\" + _char if code else _char)
 	return unescaped_text
 
-func _debug(string: String) -> void:
+func debug(string: String) -> void:
 	if not debug_mode:
 		return
 	print(string)
 
-func _denotes_fenced_code_block(line: String, character: String) -> bool:
+func denotes_fenced_code_block(line: String, character: String) -> bool:
 	var stripped_line := line.strip_edges()
-	var fence_count := _count_fence_chars(stripped_line, character)
+	var fence_count := count_fence_chars(stripped_line, character)
 	if fence_count < 3:
 		return false
 	var remainder := stripped_line.substr(fence_count).strip_edges()
@@ -145,7 +145,7 @@ func _denotes_fenced_code_block(line: String, character: String) -> bool:
 		return true
 	return false
 
-func _count_fence_chars(stripped_line: String, character: String) -> int:
+func count_fence_chars(stripped_line: String, character: String) -> int:
 	var count := 0
 	for c in stripped_line:
 		if c == character:
@@ -154,7 +154,7 @@ func _count_fence_chars(stripped_line: String, character: String) -> int:
 			break
 	return count
 
-func _process_escaped_characters(line: String) -> String:
+func process_escaped_characters(line: String) -> String:
 	var regex := RegEx.create_from_string("\\\\" + ESCAPEABLE_CHARACTERS_REGEX)
 	var processed_line := line
 	while true:
@@ -168,7 +168,7 @@ func _process_escaped_characters(line: String) -> String:
 		processed_line = processed_line.erase(_start, 2).insert(_start, ESCAPE_PLACEHOLDER % escaped_characters_map[_escaped_char])
 	return processed_line
 
-func _get_header_format(level: int) -> Resource:
+func get_header_format(level: int) -> Resource:
 	match level:
 		1: return h1
 		2: return h2
@@ -178,7 +178,7 @@ func _get_header_format(level: int) -> Resource:
 		6: return h6
 	return null
 
-func _get_header_tags(format: Resource, closing := false) -> String:
+func get_header_tags(format: Resource, closing := false) -> String:
 	if not format: return ""
 	var tags := ""
 	if not closing:
@@ -195,7 +195,7 @@ func _get_header_tags(format: Resource, closing := false) -> String:
 		if format.get("font_size"): tags += "[/font_size]"
 	return tags
 
-func _get_header_reference(header_text: String) -> String:
+func get_header_reference(header_text: String) -> String:
 	var regex := RegEx.create_from_string("[^a-z0-9\\s-]")
 	var ref := header_text.to_lower().strip_edges().trim_prefix("#").strip_edges()
 	ref = regex.sub(ref, "", true).replace(" ", "-")

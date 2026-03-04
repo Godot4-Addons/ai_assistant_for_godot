@@ -11,7 +11,7 @@ func process_line(line: String) -> String:
 			_indent_spaces.pop_back()
 			_indent_types.pop_back()
 		parser.converted_text += "\n"
-		parser._debug("... empty line, closing all list tags")
+		parser.debug("... empty line, closing all list tags")
 		return ""
 	
 	if parser.indent_level == -1:
@@ -21,7 +21,7 @@ func process_line(line: String) -> String:
 			_indent_types.append("ul")
 			parser.converted_text += "[ul]"
 			processed_line = line.substr(2)
-			parser._debug("... opening unordered list at level 0")
+			parser.debug("... opening unordered list at level 0")
 			processed_line = _process_task_list_item(processed_line)
 		elif line.length() > 3 and line[0] == "1" and line[1] == "." and line[2] == " ":
 			parser.indent_level = 0
@@ -29,7 +29,7 @@ func process_line(line: String) -> String:
 			_indent_types.append("ol")
 			parser.converted_text += "[ol]"
 			processed_line = line.substr(3)
-			parser._debug("... opening ordered list at level 0")
+			parser.debug("... opening ordered list at level 0")
 		else:
 			processed_line = line
 		return processed_line
@@ -43,7 +43,7 @@ func process_line(line: String) -> String:
 			if line.length() > n_s + 2 and line[n_s + 1] == " ":
 				if n_s == _indent_spaces[parser.indent_level]:
 					processed_line = line.substr(n_s + 2)
-					parser._debug("... adding list element at level %d" % parser.indent_level)
+					parser.debug("... adding list element at level %d" % parser.indent_level)
 					processed_line = _process_task_list_item(processed_line)
 					break
 				elif n_s > _indent_spaces[parser.indent_level]:
@@ -52,7 +52,7 @@ func process_line(line: String) -> String:
 					_indent_types.append("ul")
 					parser.converted_text += "[ul]"
 					processed_line = line.substr(n_s + 2)
-					parser._debug("... opening list at level %d and adding element" % parser.indent_level)
+					parser.debug("... opening list at level %d and adding element" % parser.indent_level)
 					processed_line = _process_task_list_item(processed_line)
 					break
 				else:
@@ -66,14 +66,14 @@ func process_line(line: String) -> String:
 							break
 					parser.converted_text += "\n"
 					processed_line = line.substr(n_s + 2)
-					parser._debug("...closing lists down to level %d and adding element" % parser.indent_level)
+					parser.debug("...closing lists down to level %d and adding element" % parser.indent_level)
 					processed_line = _process_task_list_item(processed_line)
 					break
 		elif _char in "123456789":
 			if line.length() > n_s + 3 and line[n_s + 1] == "." and line[n_s + 2] == " ":
 				if n_s == _indent_spaces[parser.indent_level]:
 					processed_line = line.substr(n_s + 3)
-					parser._debug("... adding list element at level %d" % parser.indent_level)
+					parser.debug("... adding list element at level %d" % parser.indent_level)
 					break
 				elif n_s > _indent_spaces[parser.indent_level]:
 					parser.indent_level += 1
@@ -81,7 +81,7 @@ func process_line(line: String) -> String:
 					_indent_types.append("ol")
 					parser.converted_text += "[ol]"
 					processed_line = line.substr(n_s + 3)
-					parser._debug("... opening list at level %d and adding element" % parser.indent_level)
+					parser.debug("... opening list at level %d and adding element" % parser.indent_level)
 					break
 				else:
 					for i in range(parser.indent_level, -1, -1):
@@ -94,7 +94,7 @@ func process_line(line: String) -> String:
 							break
 					parser.converted_text += "\n"
 					processed_line = line.substr(n_s + 3)
-					parser._debug("... closing lists down to level %d and adding element" % parser.indent_level)
+					parser.debug("... closing lists down to level %d and adding element" % parser.indent_level)
 					break
 					
 	if processed_line.is_empty():
@@ -105,7 +105,7 @@ func process_line(line: String) -> String:
 			_indent_types.pop_back()
 		parser.converted_text += "\n"
 		processed_line = line
-		parser._debug("... regular line, closing all opened lists")
+		parser.debug("... regular line, closing all opened lists")
 	return processed_line
 
 var _indent_spaces := []
@@ -127,7 +127,7 @@ func _process_task_list_item(item: String) -> String:
 	var processed_item := item.erase(0, 3)
 	var checkbox: String
 	var meta := {
-		AIMarkdownParser._CHECKBOX_KEY: true,
+		AIMarkdownParser.CHECKBOX_KEY: true,
 		"id": parser.checkbox_id
 	}
 	parser.checkbox_record[parser.checkbox_id] = parser.current_line - 1 # current_line is actually the next line here
@@ -135,11 +135,11 @@ func _process_task_list_item(item: String) -> String:
 	if item[1] == " ":
 		checkbox = parser.unchecked_item_character
 		meta.checked = false
-		parser._debug("... item is an unchecked task item")
+		parser.debug("... item is an unchecked task item")
 	elif item[1] == "x":
 		checkbox = parser.checked_item_character
 		meta.checked = true
-		parser._debug("... item is a checked task item")
+		parser.debug("... item is a checked task item")
 	if parser.enable_checkbox_clicks:
 		processed_item = processed_item.insert(0, "[url=%s]%s[/url]" % [JSON.stringify(meta), checkbox])
 	else:

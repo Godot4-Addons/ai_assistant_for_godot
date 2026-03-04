@@ -13,39 +13,39 @@ func reset() -> void:
 
 func process_line(line: String) -> String:
 	# Handle fenced code blocks:
-	if not within_tilde_block and parser._denotes_fenced_code_block(line, "`"):
+	if not within_tilde_block and parser.denotes_fenced_code_block(line, "`"):
 		if within_backtick_block:
-			if parser._count_fence_chars(line.strip_edges(), "`") >= current_code_block_char_count:
+			if parser.count_fence_chars(line.strip_edges(), "`") >= current_code_block_char_count:
 				parser.converted_text = parser.converted_text.trim_suffix("\n")
 				parser.current_paragraph -= 1
 				parser.converted_text += "[/code]"
 				within_backtick_block = false
-				parser._debug("... closing backtick block")
+				parser.debug("... closing backtick block")
 				return "" # Indicate line was handled as a toggle
 		else:
 			parser.converted_text += "[code]"
 			within_backtick_block = true
-			current_code_block_char_count = parser._count_fence_chars(line.strip_edges(), "`")
-			parser._debug("... opening backtick block")
+			current_code_block_char_count = parser.count_fence_chars(line.strip_edges(), "`")
+			parser.debug("... opening backtick block")
 			return "" # Indicate line was handled as a toggle
-	elif not within_backtick_block and parser._denotes_fenced_code_block(line, "~"):
+	elif not within_backtick_block and parser.denotes_fenced_code_block(line, "~"):
 		if within_tilde_block:
-			if parser._count_fence_chars(line.strip_edges(), "~") >= current_code_block_char_count:
+			if parser.count_fence_chars(line.strip_edges(), "~") >= current_code_block_char_count:
 				parser.converted_text = parser.converted_text.trim_suffix("\n")
 				parser.current_paragraph -= 1
 				parser.converted_text += "[/code]"
 				within_tilde_block = false
-				parser._debug("... closing tilde block")
+				parser.debug("... closing tilde block")
 				return ""
 		else:
 			parser.converted_text += "[code]"
 			within_tilde_block = true
-			current_code_block_char_count = parser._count_fence_chars(line.strip_edges(), "~")
-			parser._debug("... opening tilde block")
+			current_code_block_char_count = parser.count_fence_chars(line.strip_edges(), "~")
+			parser.debug("... opening tilde block")
 			return ""
 	
 	if within_backtick_block or within_tilde_block:
-		parser.converted_text += parser._escape_bbcode(line)
+		parser.converted_text += parser.escape_bbcode(line)
 		return "" # Handled by the block
 		
 	# Process inline code (not a toggle, just a regular line transformation)
@@ -60,9 +60,9 @@ func _process_inline_code_syntax(line: String) -> String:
 			break
 		var _start := result.get_start()
 		var _end := result.get_end()
-		var unescaped_content := parser._reset_escaped_chars(result.get_string(2), true)
-		unescaped_content = parser._escape_bbcode(unescaped_content)
-		unescaped_content = parser._escape_chars(unescaped_content)
+		var unescaped_content := parser.reset_escaped_chars(result.get_string(2), true)
+		unescaped_content = parser.escape_bbcode(unescaped_content)
+		unescaped_content = parser.escape_chars(unescaped_content)
 		processed_line = processed_line.erase(_start, _end - _start).insert(_start, "[code]%s[/code]" % unescaped_content)
-		parser._debug("... in-line code: " + unescaped_content)
+		parser.debug("... in-line code: " + unescaped_content)
 	return processed_line

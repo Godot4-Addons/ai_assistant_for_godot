@@ -36,13 +36,13 @@ func _process_image_syntax(line: String) -> String:
 			if title_result:
 				title = title_result.get_string(1)
 				url = url.rstrip(" ").trim_suffix(title_result.get_string()).rstrip(" ")
-			url = parser._escape_chars(url)
+			url = parser.escape_chars(url)
 			processed_line = processed_line.erase(_start, _end - _start).insert(_start, "[img%s%s]%s[/img]" % [
 				" alt=\"%s\"" % alt_text if alt_text else "",
 				" tooltip=\"%s\"" % title if title_result and title else "",
 				url,
 			])
-			parser._debug("... image: " + result.get_string())
+			parser.debug("... image: " + result.get_string())
 			break
 		if not found_proper_match:
 			break
@@ -73,7 +73,7 @@ func _process_link_syntax(line: String) -> String:
 			if title_result:
 				title = title_result.get_string(1)
 				url = url.rstrip(" ").trim_suffix(title_result.get_string()).rstrip(" ")
-			url = parser._escape_chars(url)
+			url = parser.escape_chars(url)
 			processed_line = processed_line.erase(
 				_start + _text.get_start(),
 				_end - _start - _text.get_start()
@@ -86,7 +86,7 @@ func _process_link_syntax(line: String) -> String:
 					_start + _text.get_start() + 12 + url.length() + _text.get_string(1).length(),
 					"[/hint]"
 				).insert(_start + _text.get_start(), "[hint=%s]" % title)
-			parser._debug("... hyperlink: " + result.get_string())
+			parser.debug("... hyperlink: " + result.get_string())
 			break
 		if not found_proper_match:
 			break
@@ -102,13 +102,13 @@ func _process_link_syntax(line: String) -> String:
 		var mail := regex.search(result.get_string(1))
 		if mail:
 			url = mail.get_string(1)
-		url = parser._escape_chars(url)
+		url = parser.escape_chars(url)
 		if mail:
 			processed_line = processed_line.erase(_start, _end - _start).insert(_start, "[url=mailto:%s]%s[/url]" % [url, url])
-			parser._debug("... mail link: " + result.get_string())
+			parser.debug("... mail link: " + result.get_string())
 		else:
 			processed_line = processed_line.erase(_start, _end - _start).insert(_start, "[url]%s[/url]" % url)
-			parser._debug("... explicit link: " + result.get_string())
+			parser.debug("... explicit link: " + result.get_string())
 	return processed_line
 
 func _process_text_formatting_syntax(line: String) -> String:
@@ -123,7 +123,7 @@ func _process_text_formatting_syntax(line: String) -> String:
 		var _end := result.get_end()
 		processed_line = processed_line.erase(_start, 2).insert(_start, "[b]")
 		processed_line = processed_line.erase(_end - 1, 2).insert(_end - 1, "[/b]")
-		parser._debug("... bold text: " + result.get_string(2))
+		parser.debug("... bold text: " + result.get_string(2))
 	
 	# Italic text
 	while true:
@@ -150,7 +150,7 @@ func _process_text_formatting_syntax(line: String) -> String:
 		else:
 			processed_line = processed_line.erase(_start, 1).insert(_start, "[i]")
 			processed_line = processed_line.erase(_end + 1, 1).insert(_end + 1, "[/i]")
-		parser._debug("... italic text: " + result.get_string(2))
+		parser.debug("... italic text: " + result.get_string(2))
 	
 	# Strike-through text
 	regex.compile("(\\~\\~)(.+?)\\1")
@@ -162,7 +162,7 @@ func _process_text_formatting_syntax(line: String) -> String:
 		processed_line = processed_line.erase(_start, 2).insert(_start, "[s]")
 		var _end := result.get_end()
 		processed_line = processed_line.erase(_end - 1, 2).insert(_end - 1, "[/s]")
-		parser._debug("... strike-through text: " + result.get_string(2))
+		parser.debug("... strike-through text: " + result.get_string(2))
 	
 	return processed_line
 
@@ -180,5 +180,5 @@ func _process_hr_syntax(line: String) -> String:
 			parser.hr_alignment,
 			parser.hr_color.to_html(),
 		]
-		parser._debug("... horizontal rule")
+		parser.debug("... horizontal rule")
 	return processed_line
