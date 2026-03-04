@@ -148,7 +148,7 @@ func _load_persistent_memory() -> void:
 	if json.parse(file.get_as_text()) == OK:
 		var data = json.data
 		if data is Array:
-			_persistent_sessions = data
+			_persistent_sessions.assign(data)
 
 ## Get relevant past context for a given task
 func get_relevant_context(task: String) -> String:
