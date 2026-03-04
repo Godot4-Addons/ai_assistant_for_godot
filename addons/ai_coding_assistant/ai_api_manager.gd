@@ -194,7 +194,7 @@ func _on_chunk_received(chunk: String) -> void:
 	if chunk == "[DONE]": return
 	var json := JSON.new()
 	if json.parse(chunk) == OK and typeof(json.data) == TYPE_DICTIONARY:
-		var txt := provider_handlers[api_provider].parse_stream_chunk(json.data)
+		var txt: String = provider_handlers[api_provider].parse_stream_chunk(json.data)
 		if not txt.is_empty():
 			_current_full_response += txt
 			chunk_received.emit(txt)
