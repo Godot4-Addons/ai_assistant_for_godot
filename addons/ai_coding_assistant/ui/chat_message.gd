@@ -4,7 +4,7 @@ class_name AIChatMessage
 
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
 const MarkdownLabelClass = preload("res://addons/ai_coding_assistant/markdownlabel/markdownlabel.gd")
-const SyntaxHighlighter = preload("res://addons/ai_coding_assistant/markdownlabel/syntax_highlighter.gd")
+const CodeHighlighterScript = preload("res://addons/ai_coding_assistant/markdownlabel/syntax_highlighter.gd")
 
 var sender_label: Label
 var time_label: Label
@@ -12,7 +12,7 @@ var body_container: VBoxContainer
 var _full_text: String = ""
 var _is_streaming: bool = false
 var _stream_label: RichTextLabel = null
-var _highlighter = SyntaxHighlighter.new()
+var _highlighter = CodeHighlighterScript.new()
 
 func _init(sender: String, content: String, color: Color):
 	_setup_ui(sender, content, color)
