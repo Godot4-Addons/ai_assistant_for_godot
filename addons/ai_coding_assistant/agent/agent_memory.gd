@@ -108,7 +108,7 @@ func compact_history() -> void:
 	# Build summary text
 	var summary_parts: Array[String] = []
 	for entry in to_compact:
-		var short := entry.content.substr(0, 150).strip_edges()
+		var short: String = entry.content.substr(0, 150).strip_edges()
 		summary_parts.append("[%s]: %s..." % [entry.role, short])
 
 	var summary_entry := {

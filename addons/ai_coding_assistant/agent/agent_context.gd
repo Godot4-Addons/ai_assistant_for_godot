@@ -210,7 +210,7 @@ func get_editor_state() -> Dictionary:
 	if se:
 		var cur := se.get_current_editor()
 		if cur:
-			var res := cur.get_edited_resource()
+			var res: Resource = cur.get_edited_resource()
 			if res:
 				current_path = res.resource_path
 	return {
