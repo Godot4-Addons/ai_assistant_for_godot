@@ -63,6 +63,8 @@ const _CHECKBOX_KEY := "markdownlabel-checkbox"
 
 func _init(p_markdown_text: String = "") -> void:
 	bbcode_enabled = true
+	selection_enabled = true
+	context_menu_enabled = true
 	markdown_text = p_markdown_text
 	meta_clicked.connect(_on_meta_clicked)
 

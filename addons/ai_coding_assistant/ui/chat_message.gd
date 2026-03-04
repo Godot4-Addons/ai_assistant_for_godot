@@ -52,6 +52,8 @@ func set_content(text: String):
 		child.queue_free()
 	var md_label = MarkdownLabelClass.new()
 	md_label.fit_content = true
+	md_label.selection_enabled = true
+	md_label.context_menu_enabled = true
 	md_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	md_label.add_theme_font_size_override("normal_font_size", 12)
 	body_container.add_child(md_label)
@@ -65,6 +67,8 @@ func append_content(new_text: String):
 			child.queue_free()
 		_stream_label = RichTextLabel.new()
 		_stream_label.fit_content = true
+		_stream_label.selection_enabled = true
+		_stream_label.context_menu_enabled = true
 		_stream_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_stream_label.add_theme_font_size_override("normal_font_size", 12)
 		_stream_label.add_theme_color_override("default_color", Color(0.8, 0.8, 0.8))
