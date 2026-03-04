@@ -220,7 +220,7 @@ func _highlight_line(line: String, keywords: Array, types: Array, comment_char: 
 
 	# Keywords
 	for kw in keywords:
-		var escaped_kw := kw.replace("+", "\\+").replace("#", "\\#")
+		var escaped_kw: String = kw.replace("+", "\\+").replace("#", "\\#")
 		colored = _apply_token_color(colored, "(?<![a-zA-Z_])(" + escaped_kw + ")(?![a-zA-Z0-9_])", color_keyword)
 
 	# Types
