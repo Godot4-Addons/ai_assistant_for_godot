@@ -69,9 +69,12 @@ func append_content(new_text: String):
 		_stream_label.fit_content = true
 		_stream_label.selection_enabled = true
 		_stream_label.context_menu_enabled = true
+		_stream_label.deselect_on_focus_loss_enabled = true
 		_stream_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_stream_label.add_theme_font_size_override("normal_font_size", 12)
 		_stream_label.add_theme_color_override("default_color", Color(0.8, 0.8, 0.8))
+		_stream_label.add_theme_color_override("selection_color", Color(0.23, 0.51, 0.96, 0.35))
+		_stream_label.add_theme_color_override("font_selected_color", Color(1.0, 1.0, 1.0, 1.0))
 		body_container.add_child(_stream_label)
 	
 	_stream_label.text = _full_text

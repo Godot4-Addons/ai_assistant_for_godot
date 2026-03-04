@@ -65,6 +65,10 @@ func _init(p_markdown_text: String = "") -> void:
 	bbcode_enabled = true
 	selection_enabled = true
 	context_menu_enabled = true
+	deselect_on_focus_loss_enabled = true
+	# Smooth selection colors
+	add_theme_color_override("selection_color", Color(0.23, 0.51, 0.96, 0.35)) # Soft blue highlight
+	add_theme_color_override("font_selected_color", Color(1.0, 1.0, 1.0, 1.0)) # White selected text
 	markdown_text = p_markdown_text
 	meta_clicked.connect(_on_meta_clicked)
 

@@ -67,6 +67,7 @@ var hr_height: int = 2
 var hr_width: float = 90
 var hr_alignment: String = "center"
 var hr_color: Color = Color.WHITE
+var code_block_bg_color := "0f172a" # Dark slate for code background
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Main Parse Loop
@@ -170,11 +171,13 @@ func _extract_language(stripped_line: String, character: String) -> String:
 
 func _flush_code_block() -> void:
 	var code_text := "\n".join(_code_block_lines)
+	var bg_open := "[bgcolor=#%s]" % code_block_bg_color
+	var bg_close := "[/bgcolor]"
 	if syntax_highlighting_enabled and _code_block_language != "":
 		var highlighted := _highlighter.highlight(code_text, _code_block_language, _escape_bbcode)
-		converted_text += "[code]" + highlighted + "[/code]"
+		converted_text += bg_open + "[code]" + highlighted + "[/code]" + bg_close
 	else:
-		converted_text += "[code]" + _escape_bbcode(code_text) + "[/code]"
+		converted_text += bg_open + "[code]" + _escape_bbcode(code_text) + "[/code]" + bg_close
 	_code_block_lines.clear()
 	_code_block_language = ""
 
