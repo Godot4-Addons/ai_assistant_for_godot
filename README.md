@@ -175,14 +175,14 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 - **Godot Engine** — Juan Linietsky, Ariel Manzur & Contributors
 - **MarkdownLabel** — Based on [daenvil/MarkdownLabel](https://github.com/daenvil/MarkdownLabel) (MIT)
-- **Logo & Design** — Grandpa EJ
+- **Logo & Design** — [Grandpa EJ](https://github.com/gpbot-org)
 - **AI Providers** — Google (Gemini), HuggingFace, Cohere, OpenRouter
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for the Godot community by [Grandpa EJ](https://github.com/grandpa-ej)**
+**Made with ❤️ for the Godot community by [Grandpa EJ](https://github.com/grandpaej)**
 
 _Transform your Godot development with professional AI assistance!_ 🚀
 
