@@ -97,7 +97,7 @@ func parse(source_text: String) -> String:
 		line = line.trim_suffix("\r")
 		_debug("Parsing line: '%s'" % line)
 		var within_code_block := _within_tilde_block or _within_backtick_block
-		if current_line > 0 and not skip_line_break:
+		if current_line > 0 and not skip_line_break and not within_code_block:
 			converted_text += "\n"
 			current_paragraph += 1
 		skip_line_break = false
