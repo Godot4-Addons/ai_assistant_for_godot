@@ -33,6 +33,12 @@
 - � **Permission Manager** — Approve or deny AI file operations
 - ⚡ **Performance** — Intelligent caching, streaming without freezes, loop guards
 
+### ⚠️ Known Limitations
+
+- **Code/Auto mode** is not fully developed yet — may produce incomplete results on complex multi-file tasks
+- **Streaming** shows plain text until finalized (no live markdown rendering)
+- **HuggingFace & Cohere** providers are less tested than Gemini
+
 ---
 
 ## 🚀 Quick Start

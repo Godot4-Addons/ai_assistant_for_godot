@@ -42,9 +42,18 @@ All notable changes to the AI Coding Assistant for Godot 4 are documented here.
 - Extreme UI freezing during code generation and streaming
 - Freeze/crash on stop button — full robustness overhaul
 
+### ⚠️ Known Limitations
+
+- **Code/Auto mode** is not fully developed yet — agentic tool execution may produce incomplete results on complex multi-file tasks
+- **Streaming mode** doesn't render markdown in real-time (only plain text until finalized)
+- **No line numbers** in code blocks yet
+- **No multi-block copy** — can only copy individual code blocks, not entire chat messages
+- **HuggingFace & Cohere** providers are less tested than Gemini
+- **Large projects** may cause slow initial context building on first use
+
 ---
 
-## [2.0.0] — 2026-02-28
+## [2.0.0] — 2025-02-28
 
 ### ✨ Added
 
