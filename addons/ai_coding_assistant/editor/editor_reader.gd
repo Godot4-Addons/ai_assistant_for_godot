@@ -119,8 +119,19 @@ func list_files(dir_path: String = "res://") -> Array:
 		file_name = dir.get_next()
 	return files
 
+const TEXT_EXTENSIONS: Array[String] = [
+	"gd", "tscn", "tres", "godot", "md", "txt", "json", "csv",
+	"cfg", "ini", "import", "log", "gitignore", "gdshader"
+]
+
 func read_file(path: String) -> String:
 	if not FileAccess.file_exists(path): return ""
+	
+	# Prevent Godot UTF-8 parsing errors on binary files
+	var ext := path.get_extension().to_lower()
+	if ext != "" and not TEXT_EXTENSIONS.has(ext):
+		return "[Binary file omitted: %s]" % path
+		
 	var file = FileAccess.open(path, FileAccess.READ)
 	if not file: return ""
 	return file.get_as_text()
