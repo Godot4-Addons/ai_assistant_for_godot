@@ -1,5 +1,5 @@
 @tool
-extends AIMarkdownRule
+extends preload("base_rule.gd")
 class_name AIMarkdownCodeBlockRule
 
 var within_backtick_block := false

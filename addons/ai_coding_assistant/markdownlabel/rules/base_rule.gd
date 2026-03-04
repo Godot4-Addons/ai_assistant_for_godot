@@ -4,9 +4,9 @@ class_name AIMarkdownRule
 
 ## Base class for Markdown parsing rules.
 
-var parser: AIMarkdownParser
+var parser
 
-func _init(p_parser: AIMarkdownParser) -> void:
+func _init(p_parser) -> void:
 	parser = p_parser
 
 ## Processes a single line. Returns the processed line.

@@ -1,5 +1,5 @@
 @tool
-extends AIMarkdownRule
+extends preload("base_rule.gd")
 class_name AIMarkdownHeaderRule
 
 func process_line(line: String) -> String:
