@@ -7,7 +7,7 @@ class_name AIToolRegistry
 
 signal tool_executed(tool_name: String, args: Dictionary, result: Dictionary)
 
-const XML_TOOL_REGEX = "<(\\w+)(\\s+[^>]+)?\\s*(?:>([\\s\\S]*?)<\\/\\1>|\\/>)"
+const XML_TOOL_REGEX = "<(\\w+)(?:\\s+([^>]*?))?\\s*(?:>([\\s\\S]*?)<\\/\\1>|\\/>)"
 
 var _tools: Dictionary = {}
 var _editor_integration # AIEditorIntegration

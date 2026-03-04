@@ -160,7 +160,10 @@ func _process_request():
 						if line.begins_with("data:"):
 							var json_str = line.trim_prefix("data:").strip_edges()
 							if json_str == "[DONE]":
-								break
+								call_deferred("_emit_completed")
+								_is_requesting = false
+								_http_client.close()
+								return
 								
 							call_deferred("_emit_chunk", json_str)
 						
