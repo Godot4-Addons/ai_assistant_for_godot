@@ -170,6 +170,11 @@ func _process_response(response: String) -> void:
 			result = _tools.execute_tool(tool_name, args)
 		else:
 			result = {"error": "Tool system unavailable"}
+			
+		# Let Godot's main thread breathe (prevents freeze during heavy multi-tool ops)
+		if _api_manager and _api_manager.is_inside_tree():
+			await _api_manager.get_tree().process_frame
+			
 		_memory.add_tool_result(tool_name, args, result)
 		var result_str := _tools.format_result_for_prompt(tool_name, args, result)
 		tool_results.append(result_str)

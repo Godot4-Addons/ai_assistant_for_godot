@@ -266,6 +266,8 @@ func update_streaming_message(sender: String, text: String, color: Color = Color
 	_scroll_to_bottom()
 
 func finish_streaming() -> void:
+	if _last_streaming_card:
+		_last_streaming_card.finalize_streaming()
 	_last_streaming_card = null
 	_remove_thinking()
 

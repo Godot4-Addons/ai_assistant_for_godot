@@ -9,6 +9,8 @@ var sender_label: Label
 var time_label: Label
 var body_container: VBoxContainer
 var _full_text: String = ""
+var _is_streaming: bool = false
+var _stream_label: RichTextLabel = null
 
 func _init(sender: String, content: String, color: Color):
 	_setup_ui(sender, content, color)
@@ -50,5 +52,21 @@ func set_content(text: String):
 
 func append_content(new_text: String):
 	_full_text += new_text
-	# Re-rendering everything is safer for streaming with code blocks
-	MarkdownRenderer.render_to_vbox(body_container, _full_text)
+	if not _is_streaming:
+		_is_streaming = true
+		for child in body_container.get_children():
+			child.queue_free()
+		_stream_label = RichTextLabel.new()
+		_stream_label.fit_content = true
+		_stream_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_stream_label.add_theme_font_size_override("normal_font_size", 12)
+		_stream_label.add_theme_color_override("default_color", Color(0.8, 0.8, 0.8))
+		body_container.add_child(_stream_label)
+	
+	_stream_label.text = _full_text
+
+func finalize_streaming():
+	if _is_streaming:
+		_is_streaming = false
+		_stream_label = null
+		set_content(_full_text)
