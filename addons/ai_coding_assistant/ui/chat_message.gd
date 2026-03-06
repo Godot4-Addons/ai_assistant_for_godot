@@ -6,6 +6,8 @@ const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
 const MarkdownLabelClass = preload("res://addons/ai_coding_assistant/markdownlabel/markdownlabel.gd")
 const CodeHighlighterScript = preload("res://addons/ai_coding_assistant/markdownlabel/syntax_highlighter.gd")
 
+signal apply_code_requested(code: String)
+
 var sender_label: Label
 var time_label: Label
 var body_container: VBoxContainer
@@ -133,6 +135,16 @@ func _add_code_block(language: String, code: String) -> void:
 	copy_btn.pressed.connect(func(): _copy_code(code, copy_btn))
 	header_hbox.add_child(copy_btn)
 	
+	# Apply button
+	var apply_btn = Button.new()
+	apply_btn.text = "  ✨ Apply  "
+	apply_btn.flat = true
+	apply_btn.add_theme_font_size_override("font_size", 10)
+	apply_btn.add_theme_color_override("font_color", Color("#8b949e"))
+	apply_btn.add_theme_color_override("font_hover_color", Color("#58a6ff"))
+	apply_btn.pressed.connect(func(): _apply_code(code, apply_btn))
+	header_hbox.add_child(apply_btn)
+	
 	# Code content area
 	var code_panel = PanelContainer.new()
 	var code_style = StyleBoxFlat.new()
@@ -177,6 +189,16 @@ func _copy_code(code: String, btn: Button) -> void:
 	timer.timeout.connect(func():
 		if is_instance_valid(btn):
 			btn.text = "  📋 Copy  "
+	)
+
+func _apply_code(code: String, btn: Button) -> void:
+	apply_code_requested.emit(code)
+	btn.text = "  🚀 Applied!  "
+	# Reset after 2 seconds
+	var timer = get_tree().create_timer(2.0)
+	timer.timeout.connect(func():
+		if is_instance_valid(btn):
+			btn.text = "  ✨ Apply  "
 	)
 
 func append_content(new_text: String):

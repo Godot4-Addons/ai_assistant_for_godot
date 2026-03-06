@@ -7,6 +7,7 @@ signal stop_requested
 signal clear_requested
 signal mode_requested(mode: String)
 signal model_requested(model: String)
+signal apply_code_requested(code: String)
 
 const MessageCard = preload("res://addons/ai_coding_assistant/ui/chat_message.gd")
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
@@ -44,6 +45,10 @@ func _setup_ui() -> void:
 	chat_display = VBoxContainer.new()
 	chat_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chat_display.add_theme_constant_override("separation", 10)
+	chat_display.child_entered_tree.connect(func(node):
+		if node is MessageCard:
+			node.apply_code_requested.connect(func(code): apply_code_requested.emit(code))
+	)
 	scroll_container.add_child(chat_display)
 
 	# ── Agent status bar (hidden by default) ──

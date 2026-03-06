@@ -123,6 +123,7 @@ func _setup_ui() -> void:
 	chat_ui.stop_requested.connect(_on_stop_requested)
 	chat_ui.clear_requested.connect(_on_clear_requested)
 	chat_ui.mode_requested.connect(func(mode): api_manager.current_mode = mode)
+	chat_ui.apply_code_requested.connect(_on_apply_code_requested)
 	chat_container.add_child(chat_ui)
 
 	# Diff Viewer
@@ -159,6 +160,10 @@ func _on_add_to_chat_requested(text: String) -> void:
 func _on_clear_selection_requested() -> void:
 	if selection_manager:
 		selection_manager.clear_selection()
+
+func _on_apply_code_requested(code: String) -> void:
+	if editor_integration:
+		editor_integration.insert_text_at_cursor(code)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PROCESS:
