@@ -5,15 +5,19 @@ extends Control
 const ChatSection = preload("res://addons/ai_coding_assistant/ui/chat_section.gd")
 const SettingsSection = preload("res://addons/ai_coding_assistant/ui/settings_section.gd")
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
+const SelectionManager = preload("res://addons/ai_coding_assistant/editor/selection_manager.gd")
+const SelectionToolbar = preload("res://addons/ai_coding_assistant/ui/selection_toolbar.gd")
 
 var api_manager: AIApiManager
 var editor_integration
 var plugin_editor_interface: EditorInterface
+var selection_manager: AISelectionManager
 
 # UI Components
 var chat_ui: AIChatSection
 var settings_ui: AISettingsSection
 var settings_panel: PanelContainer
+var selection_toolbar: AISelectionToolbar
 
 func _init() -> void:
 	name = "AI Assistant"
@@ -38,6 +42,8 @@ func _ready() -> void:
 	if plugin_editor_interface:
 		editor_integration = preload("res://addons/ai_coding_assistant/editor_integration.gd").new(plugin_editor_interface)
 		api_manager.setup_agent(editor_integration, plugin_editor_interface)
+		selection_manager = SelectionManager.new(editor_integration.reader)
+		selection_manager.selection_updated.connect(_on_selection_updated)
 
 	# Agent signals
 	api_manager.agent_status_changed.connect(_on_agent_status_changed)
@@ -89,6 +95,12 @@ func _setup_ui() -> void:
 	settings_panel.visible = false
 	main_vbox.add_child(settings_panel)
 
+	# Selection Toolbar
+	selection_toolbar = SelectionToolbar.new()
+	selection_toolbar.add_to_chat_requested.connect(_on_add_to_chat_requested)
+	selection_toolbar.clear_requested.connect(_on_clear_selection_requested)
+	main_vbox.add_child(selection_toolbar)
+
 	settings_ui = SettingsSection.new()
 	settings_ui.provider_changed.connect(_on_provider_changed)
 	settings_ui.model_changed.connect(_on_model_changed)
@@ -104,6 +116,7 @@ func _setup_ui() -> void:
 	main_vbox.add_child(chat_container)
 
 	chat_ui = ChatSection.new()
+	chat_ui.set_available_modes(api_manager.available_modes)
 	chat_ui.message_sent.connect(_on_chat_sent)
 	chat_ui.stop_requested.connect(_on_stop_requested)
 	chat_ui.clear_requested.connect(_on_clear_requested)
@@ -126,9 +139,28 @@ func _on_stop_requested() -> void:
 		api_manager.agent_loop.stop()
 	# Then clean up any remaining SSE (safe: api_manager.cancel_request does NOT call agent_loop.stop)
 	api_manager.cancel_request()
-	chat_ui.finish_streaming()
 	chat_ui.set_streaming_state(false)
 	chat_ui.clear_agent_status()
+
+func _on_selection_updated(text: String) -> void:
+	if selection_toolbar:
+		selection_toolbar.set_full_text(text)
+
+func _on_add_to_chat_requested(text: String) -> void:
+	if text.strip_edges().is_empty(): return
+	chat_ui.append_to_input(text)
+
+func _on_clear_selection_requested() -> void:
+	if selection_manager:
+		selection_manager.clear_selection()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PROCESS:
+		if selection_manager:
+			selection_manager.refresh_selection()
+
+func _enter_tree() -> void:
+	set_process(true)
 
 
 func _on_chunk_received(chunk: String) -> void:

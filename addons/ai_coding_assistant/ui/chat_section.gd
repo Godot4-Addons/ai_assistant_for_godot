@@ -18,6 +18,8 @@ var send_button: Button
 var mode_button: OptionButton
 var model_button: OptionButton
 
+var _available_modes: Dictionary = {}
+
 var _thinking_card: AIChatMessage = null
 var _last_streaming_card: AIChatMessage = null
 var _is_streaming: bool = false
@@ -107,12 +109,10 @@ func _setup_ui() -> void:
 	mode_button = OptionButton.new()
 	mode_button.flat = true
 	mode_button.add_theme_font_size_override("font_size", 11)
-	mode_button.add_item("💬 Chat", 0)
-	mode_button.add_item("⚙️ Code", 1)
-	mode_button.add_item("🤖 Auto", 2)
+	_update_mode_list()
 	mode_button.item_selected.connect(func(idx):
-		var modes := ["chat", "code", "auto"]
-		mode_requested.emit(modes[idx])
+		var mode_id = mode_button.get_item_metadata(idx)
+		mode_requested.emit(mode_id)
 	)
 	cmd_hbox.add_child(mode_button)
 
@@ -285,6 +285,32 @@ func _scroll_to_bottom() -> void:
 func clear_chat() -> void:
 	for child in chat_display.get_children():
 		child.queue_free()
+
+func set_available_modes(modes: Dictionary) -> void:
+	_available_modes = modes
+	_update_mode_list()
+
+func _update_mode_list() -> void:
+	if not mode_button: return
+	
+	mode_button.clear()
+	var i = 0
+	for id in _available_modes:
+		var data = _available_modes[id]
+		mode_button.add_item(data.icon + " " + data.label, i)
+		mode_button.set_item_metadata(i, id)
+		i += 1
+
+func append_to_input(text: String) -> void:
+	if text.is_empty(): return
+	var current := input_field.text
+	if not current.is_empty() and not current.ends_with("\n"):
+		current += "\n"
+	
+	var formatted := "\n```gdscript\n%s\n```\n" % text
+	input_field.text = current + formatted
+	input_field.set_caret_line(input_field.get_line_count())
+	input_field.grab_focus()
 
 func set_models(models: Array) -> void:
 	model_button.clear()
