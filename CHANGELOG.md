@@ -4,6 +4,25 @@ All notable changes to the AI Coding Assistant for Godot 4 are documented here.
 
 ---
 
+## [3.1.0] — 2026-03-06
+
+### ✨ Added
+
+- **Real-time Markdown Streaming** — See beautiful markdown and syntax-highlighted code blocks generate live as the AI types
+- **Apply Code Button** — Click "✨ Apply" on any generated code block to instantly insert (or replace selection) into your Godot script
+- **Use Selection Workflow** — Highlight code in the Godot script editor and add it directly to your chat prompt with one click
+- **Extensible Chat Modes** — Data-driven AI modes allowing easy backend expansion
+
+### 🔧 Changed
+
+- **Code Block Rendering** — Extracted into incrementally generated `PanelContainer` node structures for live rendering
+
+### 🗑️ Removed
+
+- **Inline Diff Viewer** — Removed as it became redundant with the new Apply Code functionality
+
+---
+
 ## [3.0.0] — 2026-03-04
 
 ### ✨ Added

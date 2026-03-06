@@ -1,13 +1,13 @@
 <div align="center">
   <img src="img/logo_static.svg" alt="AI Coding Assistant Logo" width="128" height="128">
 
-# 🤖 AI Coding Assistant for Godot 4 — v3.0.0
+# 🤖 AI Coding Assistant for Godot 4 — v3.1.0
 
 [![Godot 4.x](https://img.shields.io/badge/Godot-4.x-blue.svg)](https://godotengine.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-3.0.0-green.svg)](https://github.com/Godot4-Addons/ai_assistant_for_godot/releases)
+[![Version](https://img.shields.io/badge/Version-3.1.0-green.svg)](https://github.com/Godot4-Addons/ai_assistant_for_godot/releases)
 
-**A professional AI coding assistant plugin for Godot 4 with an agentic code system, syntax highlighting, and GitHub-style markdown rendering.**
+**A professional AI coding assistant plugin for Godot 4 with an agentic code system, syntax highlighting, and real-time streaming markdown rendering.**
 
 </div>
 
@@ -23,7 +23,12 @@
 
 ---
 
-## ✨ What's New in v3.0.0
+## ✨ What's New in v3.1.0
+
+- 🚀 **Real-time Markdown Streaming** — See beautiful markdown and syntax-highlighted code blocks generate live as the AI types
+- ✨ **Apply Code Directly** — Click "Apply" on any generated code block to instantly insert (or replace selection) into your Godot script
+- 📝 **Use Selection Workflow** — Highlight code in the Godot script editor and add it directly to your chat prompt with one click
+- 🔄 **Extensible Chat Modes** — Data-driven AI modes allowing easy backend expansion
 
 - � **Syntax Highlighting** — GDScript, Python, JS/TS, C#, Bash, C/C++ with a Dracula-inspired palette
 - 📦 **GitHub-Style Code Blocks** — Dark containers with rounded corners, language labels, and a 📋 **Copy** button
@@ -36,7 +41,6 @@
 ### ⚠️ Known Limitations
 
 - **Code/Auto mode** is not fully developed yet — may produce incomplete results on complex multi-file tasks
-- **Streaming** shows plain text until finalized (no live markdown rendering)
 - **HuggingFace & Cohere** providers are less tested than Gemini
 
 ---
