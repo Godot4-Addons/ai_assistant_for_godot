@@ -12,14 +12,24 @@ func _init(interface: EditorInterface, reader_instance: AIEditorReader):
 func insert_text_at_cursor(text: String):
 	var editor = reader.get_current_code_edit()
 	if editor:
+		var start_line = editor.get_caret_line()
+		var start_col = editor.get_caret_column()
+		
+		# Replace selection if one exists, otherwise just insert
 		editor.insert_text_at_caret(text)
+		
+		var lines = text.split("\n")
+		var end_line = start_line + lines.size() - 1
+		var end_col = lines[-1].length()
+		
+		if lines.size() == 1:
+			end_col += start_col
+			
+		editor.select(start_line, start_col, end_line, end_col)
 		_save_if_needed()
 
 func replace_selection(text: String):
-	var editor = reader.get_current_code_edit()
-	if editor and not editor.get_selected_text().is_empty():
-		editor.insert_text_at_caret(text)
-		_save_if_needed()
+	insert_text_at_cursor(text)
 
 func replace_line(line: int, text: String):
 	var editor = reader.get_current_code_edit()
