@@ -1,4 +1,3 @@
-# This is a useless comment
 with open("addons/ai_coding_assistant/markdown.gd", "r", encoding="utf-8") as f:
     text = f.read()
 
@@ -13,5 +12,9 @@ text = text.replace(" in_", " in _")
 text = text.replace(" for_", " for _")
 text = text.replace(" elif_", " elif _")
 
-# Note: Further processing might be needed to restore missing
-# indentation inside functions if the source snippet lost its formatting.
+# Also there were un-indented lines inside functions:
+# It looks like the source had no indentation? Wait, the file snippet shows:
+# 172: func _init(markdown_text: String = "") -> void:
+# 173: bbcode_enabled = true
+# Wait! In the view_file tool output I saw earlier, ALL the indentation was missing from the user's file!
+# That's why it failed with "Expected indented block after function declaration."

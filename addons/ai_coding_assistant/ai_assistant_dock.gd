@@ -7,7 +7,6 @@ const SettingsSection = preload("res://addons/ai_coding_assistant/ui/settings_se
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
 const SelectionManager = preload("res://addons/ai_coding_assistant/editor/selection_manager.gd")
 const SelectionToolbar = preload("res://addons/ai_coding_assistant/ui/selection_toolbar.gd")
-const DiffViewer = preload("res://addons/ai_coding_assistant/editor/diff/diff_viewer.gd")
 
 var api_manager: AIApiManager
 var editor_integration
@@ -19,7 +18,6 @@ var chat_ui: AIChatSection
 var settings_ui: AISettingsSection
 var settings_panel: PanelContainer
 var selection_toolbar: AISelectionToolbar
-var diff_viewer: AIDiffViewer
 
 func _init() -> void:
 	name = "AI Assistant"
@@ -126,10 +124,6 @@ func _setup_ui() -> void:
 	chat_ui.apply_code_requested.connect(_on_apply_code_requested)
 	chat_container.add_child(chat_ui)
 
-	# Diff Viewer
-	diff_viewer = DiffViewer.new()
-	add_child(diff_viewer)
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Chat Events
 # ─────────────────────────────────────────────────────────────────────────────
@@ -206,44 +200,8 @@ func _on_agent_tool_executed(tool_name: String, args: Dictionary, result: Dictio
 		chat_ui.add_tool_card(tool_name, message, result.has("error"))
 
 func _on_permission_needed(tool_name: String, args: Dictionary, description: String, callback: Callable) -> void:
-	if tool_name in ["patch_file", "write_file"] and editor_integration:
-		var path = args.get("path", "")
-		var orig = editor_integration.read_file(path)
-		var mod = ""
-		
-		if tool_name == "patch_file":
-			var search = args.get("search", "")
-			var replace = args.get("replace", "")
-			mod = orig.replace(search, replace)
-		else:
-			mod = args.get("content", "")
-		
-		_disconnect_all_signals(diff_viewer, "changes_accepted")
-		_disconnect_all_signals(diff_viewer, "changes_rejected")
-		
-		diff_viewer.changes_accepted.connect(func(modified_text):
-			if tool_name == "patch_file":
-				# Convert to full file replacement to handle potential user edits
-				args["search"] = orig
-				args["replace"] = modified_text
-			else:
-				args["content"] = modified_text
-			callback.call(true)
-		)
-		
-		diff_viewer.changes_rejected.connect(func():
-			callback.call(false)
-		)
-		
-		diff_viewer.show_diff(orig, mod)
-	else:
-		# Show confirmation in chat for other tools
-		chat_ui.show_confirmation(description, callback)
-
-func _disconnect_all_signals(obj: Object, sig_name: String) -> void:
-	var conns = obj.get_signal_connection_list(sig_name)
-	for c in conns:
-		obj.disconnect(sig_name, c.callable)
+	# Show confirmation in chat
+	chat_ui.show_confirmation(description, callback)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Settings
