@@ -23,6 +23,12 @@ var base_urls: Dictionary = {}
 var global_context: String = ""
 var current_mode: String = "chat"
 
+var available_modes: Dictionary = {
+	"chat": {"label": "Chat", "icon": "💬", "type": "chat"},
+	"code": {"label": "Code", "icon": "⚙️", "type": "agent"},
+	"auto": {"label": "Auto", "icon": "🤖", "type": "agent"}
+}
+
 # History (chat mode only; agent loop has its own memory)
 var chat_history: Array = []
 
@@ -90,6 +96,13 @@ func set_model(model_name: String) -> void:
 func get_provider_list() -> Array:
 	return provider_handlers.keys()
 
+func add_mode(id: String, label: String, icon: String, type: String) -> void:
+	available_modes[id] = {"label": label, "icon": icon, "type": type}
+
+func remove_mode(id: String) -> void:
+	if id != "chat": # Keep basic chat
+		available_modes.erase(id)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Agent Loop Setup
 # ─────────────────────────────────────────────────────────────────────────────
@@ -117,8 +130,10 @@ func send_chat_request(message: String, context: String = "") -> void:
 		error_occurred.emit("API key not set for " + api_provider)
 		return
 
-	# Route to agent in code/auto mode
-	if current_mode in ["code", "auto"]:
+	var mode_data = available_modes.get(current_mode, {"type": "chat"})
+	
+	# Route to agent if mode type is agent
+	if mode_data.type == "agent":
 		if not agent_loop:
 			error_occurred.emit("Agent loop not initialized. Please restart the dock.")
 			return
