@@ -52,6 +52,6 @@
   <!-- Version badge -->
   <rect x="300" y="155" width="80" height="25" rx="12" ry="12" fill="#FFA500"/>
   <text x="340" y="172" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="600">
-    v3.0.0
+    v3.1.0
   </text>
 </svg>
