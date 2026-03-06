@@ -13,8 +13,8 @@ var time_label: Label
 var body_container: VBoxContainer
 var _full_text: String = ""
 var _is_streaming: bool = false
-var _stream_label: RichTextLabel = null
 var _highlighter = CodeHighlighterScript.new()
+var _segment_nodes: Array = []
 
 func _init(sender: String, content: String, color: Color):
 	_setup_ui(sender, content, color)
@@ -52,20 +52,73 @@ func _setup_ui(sender: String, content: String, color: Color):
 
 func set_content(text: String):
 	_full_text = text
-	for child in body_container.get_children():
-		child.queue_free()
-	
 	var segments: Array = AIMarkdownParser.split_segments(_full_text)
-	for seg in segments:
-		if seg.type == "code":
-			_add_code_block(seg.language, seg.content)
-		elif seg.type == "text":
-			var content_str: String = seg.content
-			if content_str.strip_edges().is_empty():
-				continue
-			_add_markdown_label(content_str)
+	_reconcile_segments(segments)
 
-func _add_markdown_label(content: String) -> void:
+func _reconcile_segments(segments: Array):
+	# Trim excess nodes if segments shrank
+	while _segment_nodes.size() > segments.size():
+		var node_dict = _segment_nodes.pop_back()
+		if is_instance_valid(node_dict.root):
+			node_dict.root.queue_free()
+	
+	for i in range(segments.size()):
+		var seg = segments[i]
+		
+		# If node exists, see if we can reuse it
+		if i < _segment_nodes.size():
+			var node_dict = _segment_nodes[i]
+			if node_dict.type == seg.type:
+				if seg.type == "code":
+					# Only update language if it wasn't valid before, or update code content
+					_update_code_block(node_dict, seg.language, seg.content)
+				elif seg.type == "text":
+					_update_markdown_label(node_dict, seg.content)
+				continue
+			else:
+				# Type mismatch (e.g., text node turned into code block due to arriving backticks)
+				if is_instance_valid(node_dict.root):
+					node_dict.root.queue_free()
+				_segment_nodes[i] = _create_segment_node(seg)
+		else:
+			# Instantiate new node
+			_segment_nodes.append(_create_segment_node(seg))
+
+func _create_segment_node(seg: Dictionary) -> Dictionary:
+	if seg.type == "code":
+		return _add_code_block(seg.language, seg.content)
+	elif seg.type == "text":
+		return _add_markdown_label(seg.content)
+	return {}
+
+func _update_markdown_label(node_dict: Dictionary, content: String) -> void:
+	if is_instance_valid(node_dict.label):
+		node_dict.label.markdown_text = content
+
+func _update_code_block(node_dict: Dictionary, language: String, code: String) -> void:
+	if is_instance_valid(node_dict.lang_label):
+		node_dict.lang_label.text = language if language != "" else "code"
+	
+	if is_instance_valid(node_dict.copy_btn):
+		node_dict.copy_btn.disconnect("pressed", node_dict.copy_fn)
+		node_dict.copy_fn = func(): _copy_code(code, node_dict.copy_btn)
+		node_dict.copy_btn.pressed.connect(node_dict.copy_fn)
+		
+	if is_instance_valid(node_dict.apply_btn):
+		node_dict.apply_btn.disconnect("pressed", node_dict.apply_fn)
+		node_dict.apply_fn = func(): _apply_code(code, node_dict.apply_btn)
+		node_dict.apply_btn.pressed.connect(node_dict.apply_fn)
+	
+	if is_instance_valid(node_dict.code_label):
+		var escape_fn := func(text: String) -> String:
+			return text.replace("[", "\uFFFD").replace("]", "[rb]").replace("\uFFFD", "[lb]")
+		
+		if language != "":
+			node_dict.code_label.text = "[code]" + _highlighter.highlight(code, language, escape_fn) + "[/code]"
+		else:
+			node_dict.code_label.text = "[code]" + escape_fn.call(code) + "[/code]"
+
+func _add_markdown_label(content: String) -> Dictionary:
 	var md_label = MarkdownLabelClass.new()
 	md_label.fit_content = true
 	md_label.selection_enabled = true
@@ -74,8 +127,10 @@ func _add_markdown_label(content: String) -> void:
 	md_label.add_theme_font_size_override("normal_font_size", 12)
 	body_container.add_child(md_label)
 	md_label.markdown_text = content
+	
+	return {"type": "text", "root": md_label, "label": md_label}
 
-func _add_code_block(language: String, code: String) -> void:
+func _add_code_block(language: String, code: String) -> Dictionary:
 	# Outer panel with dark bg, rounded corners, border
 	var panel = PanelContainer.new()
 	var style = StyleBoxFlat.new()
@@ -132,7 +187,9 @@ func _add_code_block(language: String, code: String) -> void:
 	copy_btn.add_theme_font_size_override("font_size", 10)
 	copy_btn.add_theme_color_override("font_color", Color("#8b949e"))
 	copy_btn.add_theme_color_override("font_hover_color", Color("#c9d1d9"))
-	copy_btn.pressed.connect(func(): _copy_code(code, copy_btn))
+	
+	var copy_fn = func(): _copy_code(code, copy_btn)
+	copy_btn.pressed.connect(copy_fn)
 	header_hbox.add_child(copy_btn)
 	
 	# Apply button
@@ -141,8 +198,9 @@ func _add_code_block(language: String, code: String) -> void:
 	apply_btn.flat = true
 	apply_btn.add_theme_font_size_override("font_size", 10)
 	apply_btn.add_theme_color_override("font_color", Color("#8b949e"))
-	apply_btn.add_theme_color_override("font_hover_color", Color("#58a6ff"))
-	apply_btn.pressed.connect(func(): _apply_code(code, apply_btn))
+	
+	var apply_fn = func(): _apply_code(code, apply_btn)
+	apply_btn.pressed.connect(apply_fn)
 	header_hbox.add_child(apply_btn)
 	
 	# Code content area
@@ -180,6 +238,17 @@ func _add_code_block(language: String, code: String) -> void:
 		code_label.text = "[code]" + _highlighter.highlight(code, language, escape_fn) + "[/code]"
 	else:
 		code_label.text = "[code]" + escape_fn.call(code) + "[/code]"
+	
+	return {
+		"type": "code",
+		"root": panel,
+		"lang_label": lang_label,
+		"code_label": code_label,
+		"copy_btn": copy_btn,
+		"copy_fn": copy_fn,
+		"apply_btn": apply_btn,
+		"apply_fn": apply_fn
+	}
 
 func _copy_code(code: String, btn: Button) -> void:
 	DisplayServer.clipboard_set(code)
@@ -203,26 +272,11 @@ func _apply_code(code: String, btn: Button) -> void:
 
 func append_content(new_text: String):
 	_full_text += new_text
-	if not _is_streaming:
-		_is_streaming = true
-		for child in body_container.get_children():
-			child.queue_free()
-		_stream_label = RichTextLabel.new()
-		_stream_label.fit_content = true
-		_stream_label.selection_enabled = true
-		_stream_label.context_menu_enabled = true
-		_stream_label.deselect_on_focus_loss_enabled = true
-		_stream_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_stream_label.add_theme_font_size_override("normal_font_size", 12)
-		_stream_label.add_theme_color_override("default_color", Color(0.8, 0.8, 0.8))
-		_stream_label.add_theme_color_override("selection_color", Color(0.23, 0.51, 0.96, 0.35))
-		_stream_label.add_theme_color_override("font_selected_color", Color.WHITE)
-		body_container.add_child(_stream_label)
-	
-	_stream_label.text = _full_text
+	_is_streaming = true
+	var segments: Array = AIMarkdownParser.split_segments(_full_text)
+	_reconcile_segments(segments)
 
 func finalize_streaming():
 	if _is_streaming:
 		_is_streaming = false
-		_stream_label = null
 		set_content(_full_text)
