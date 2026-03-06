@@ -13,7 +13,5 @@ text = text.replace(" in_", " in _")
 text = text.replace(" for_", " for _")
 text = text.replace(" elif_", " elif _")
 
-# Also there were un-indented lines inside functions:
-# It looks like the source had no indentation? Wait, the file snippet shows:
-# 172: func _init(markdown_text: String = "") -> void:
-# 173: bbcode_enabled = true
+# Note: Further processing might be needed to restore missing
+# indentation inside functions if the source snippet lost its formatting.
