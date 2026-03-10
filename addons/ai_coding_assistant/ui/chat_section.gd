@@ -33,6 +33,11 @@ func _ready() -> void:
 	_setup_ui()
 
 func _setup_ui() -> void:
+	var split_container := VSplitContainer.new()
+	# Ensure it expands to fill available space
+	split_container.size_flags_vertical = Control.SIZE_EXPAND_FILL 
+	add_child(split_container)
+	
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 8)
 
@@ -40,7 +45,7 @@ func _setup_ui() -> void:
 	scroll_container = ScrollContainer.new()
 	scroll_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll_container)
+	split_container.add_child(scroll_container)
 
 	chat_display = VBoxContainer.new()
 	chat_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -83,14 +88,16 @@ func _setup_ui() -> void:
 	in_style.content_margin_top = 10
 	in_style.content_margin_bottom = 8
 	input_container.add_theme_stylebox_override("panel", in_style)
-	add_child(input_container)
+	split_container.add_child(input_container)
 
 	var input_vbox := VBoxContainer.new()
+	input_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	input_container.add_child(input_vbox)
 
 	input_field = TextEdit.new()
+	input_field.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	input_field.placeholder_text = "Ask anything... (Shift+Enter = new line)"
-	input_field.custom_minimum_size = Vector2(0, 80)
+	input_field.custom_minimum_size = Vector2(0, 250)
 	input_field.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	input_field.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	input_field.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
