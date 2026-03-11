@@ -35,7 +35,7 @@ func _ready() -> void:
 func _setup_ui() -> void:
 	var split_container := VSplitContainer.new()
 	# Ensure it expands to fill available space
-	split_container.size_flags_vertical = Control.SIZE_EXPAND_FILL 
+	split_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(split_container)
 	
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -97,7 +97,7 @@ func _setup_ui() -> void:
 	input_field = TextEdit.new()
 	input_field.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	input_field.placeholder_text = "Ask anything... (Shift+Enter = new line)"
-	input_field.custom_minimum_size = Vector2(0, 250)
+	input_field.custom_minimum_size = Vector2(0, 100)
 	input_field.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	input_field.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	input_field.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
