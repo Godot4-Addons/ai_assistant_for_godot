@@ -63,8 +63,11 @@ cp -r ai_assistant_for_godot/addons/ai_coding_assistant your_project/addons/
 ### 3. Configure
 
 1. Click **⚙ Settings** in the dock
-2. Select a provider (Gemini recommended)
+2. Select a provider (OpenRouter recommended)
 3. Enter your API key — start coding!
+
+> [!TIP]
+> **OpenRouter** is the recommended provider as it gives you unified access to all top models (Claude 4.6, GPT-5.4, Gemini 3.1, etc.) through a single API key.
 
 ---
 
@@ -104,12 +107,12 @@ cp -r ai_assistant_for_godot/addons/ai_coding_assistant your_project/addons/
 
 ### 🔌 AI Providers
 
-| Provider        | Model            | Notes                         |
-| --------------- | ---------------- | ----------------------------- |
-| **Gemini**      | gemini-2.0-flash | Recommended — fast & accurate |
-| **HuggingFace** | Various          | Free tier available           |
-| **Cohere**      | Command series   | Enterprise-grade              |
-| **OpenRouter**  | Multiple         | Access to many models         |
+| Provider        | Model          | Notes                                  |
+| --------------- | -------------- | -------------------------------------- |
+| **OpenRouter**  | Multiple       | **Recommended** — Access to all models |
+| **Gemini**      | gemini-3.1     | Fast & accurate                        |
+| **HuggingFace** | Various        | Free tier available                    |
+| **Cohere**      | Command series | Enterprise-grade                       |
 
 ---
 
