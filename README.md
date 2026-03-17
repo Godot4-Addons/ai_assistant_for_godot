@@ -29,7 +29,6 @@
 - ✏️ **Auto-Naming & Renaming** — New chats are automatically named from your first prompt. Manually rename or delete sessions directly from the settings panel.
 - 🔙 **Apply/Undo Toggle** — Applied a code block but changed your mind? Click "Undo" to instantly revert using Godot's built-in Undo system.
 - 🚀 **File Mentions (@file)** — Search and inject project file context directly into your prompts using the new `@` autocomplete.
-- 🎨 **Premium Visual Identity** — Upgraded project branding with a minimalist vector logo and a refined cyan UI theme.
 - 🛠️ **Stability & Safety** — Improved function detection for Smart Apply and fixed reported crashes in Godot 4.6.
 
 - � **Syntax Highlighting** — GDScript, Python, JS/TS, C#, Bash, C/C++ with a Dracula-inspired palette
