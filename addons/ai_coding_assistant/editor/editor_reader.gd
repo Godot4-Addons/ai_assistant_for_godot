@@ -51,14 +51,20 @@ func get_lines_around_cursor(before: int = 5, after: int = 5) -> String:
 func find_function(func_name: String) -> Dictionary:
 	var editor = get_current_code_edit()
 	if not editor: return {}
+	
+	var regex = RegEx.new()
+	# Matches "func func_name (" or "func func_name(" with any whitespace
+	regex.compile("^\\s*func\\s+" + func_name + "\\s*\\(")
+	
 	var lines = editor.get_line_count()
 	for i in range(lines):
-		var l = editor.get_line(i).strip_edges()
-		if l.begins_with("func " + func_name + "("):
+		var l = editor.get_line(i)
+		if regex.search(l):
 			var end = lines - 1
+			# Find end of function (naive: find next func entry or class)
 			for j in range(i + 1, lines):
 				var nl = editor.get_line(j).strip_edges()
-				if nl.begins_with("func ") or nl.begins_with("class "):
+				if nl.begins_with("func ") or nl.begins_with("class_name ") or nl.begins_with("extends "):
 					end = j - 1
 					break
 			var content = []

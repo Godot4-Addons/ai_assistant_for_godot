@@ -16,22 +16,35 @@ func _get_undo_redo() -> EditorUndoRedoManager:
 		return plugin_instance.get_undo_redo()
 	return null
 
+func perform_undo():
+	var ur = _get_undo_redo()
+	if ur:
+		# Note: In Godot 4.x, we usually undo the specific action or the history.
+		# For simplicity and correctness with the editor's stack:
+		var editor = reader.get_current_code_edit()
+		if editor:
+			editor.undo()
+
 func detect_apply_type(code: String) -> Dictionary:
 	var editor = reader.get_current_code_edit()
 	if not editor: return {"type": "insert"}
 	
 	var stripped = code.strip_edges()
 	
-	# 1. Check for full script
-	if stripped.begins_with("extends ") or stripped.begins_with("class_name "):
+	# 1. Check for full script (allowing for leading comments)
+	# Matches "extends" or "class_name" even if preceded by comments/newlines
+	var full_script_regex = RegEx.new()
+	full_script_regex.compile("(?m)^\\s*(extends|class_name)\\s+")
+	if full_script_regex.search(stripped):
 		return {"type": "full_replace", "confidence": 0.9}
 	
 	# 2. Check for function match
-	var regex = RegEx.new()
-	regex.compile("func\\s+([a-zA-Z0-9_]+)\\s*\\(")
-	var match = regex.search(stripped)
+	var func_regex = RegEx.new()
+	func_regex.compile("func\\s+([a-zA-Z0-9_]+)\\s*\\(")
+	var match = func_regex.search(stripped)
 	if match:
 		var func_name = match.get_string(1)
+		# Only suggest replacing if the found function is significant
 		var existing_info = reader.find_function(func_name)
 		if not existing_info.is_empty():
 			return {
@@ -43,17 +56,32 @@ func detect_apply_type(code: String) -> Dictionary:
 	return {"type": "insert"}
 
 func replace_all_text(text: String):
+	print("AI Assistant: Starting replace_all_text...")
 	var editor = reader.get_current_code_edit()
-	if editor:
-		var ur = _get_undo_redo()
-		if ur:
-			ur.create_action("AI: Replace Entire Script")
-			ur.add_do_property(editor, "text", text)
-			ur.add_undo_property(editor, "text", editor.text)
-			ur.commit_action()
-		else:
-			editor.text = text
-		_save_if_needed()
+	if not editor: 
+		print("AI Assistant: Error - No active CodeEdit found.")
+		return
+	
+	var old_text = editor.text
+	print("AI Assistant: Old text length: ", old_text.length())
+	print("AI Assistant: New text length: ", text.length())
+	
+	var ur = _get_undo_redo()
+	if ur:
+		print("AI Assistant: Using EditorUndoRedoManager for full replace.")
+		ur.create_action("AI: Replace Entire Script")
+		# Using property is standard, but let's ensure it's on the right object
+		ur.add_do_property(editor, "text", text)
+		ur.add_undo_property(editor, "text", old_text)
+		ur.commit_action()
+		print("AI Assistant: UndoRedo action committed.")
+	else:
+		print("AI Assistant: UndoRedo not available, setting text directly.")
+		editor.text = text
+	
+	# Avoid save_scene() as it might be risky in some editor states
+	# _save_if_needed()
+	print("AI Assistant: replace_all_text finished.")
 
 func write_array_to_file(path: String, lines: Array[String]) -> bool:
 	return write_file(path, "\n".join(lines))
@@ -75,15 +103,36 @@ func create_backup(path: String) -> String:
 	return ""
 
 func validate_syntax(code: String) -> bool:
-	# Basic check for common errors using regex
-	var regex = RegEx.new()
-	# Check for unmatched parentheses/brackets
+	# Strip strings and comments before checking bracket balance
+	var stripped = code
+	
+	# Strip block comments (rare in GDScript but still)
+	var block_comment_regex = RegEx.new()
+	block_comment_regex.compile("/\\*[\\s\\S]*?\\*/")
+	stripped = block_comment_regex.sub(stripped, "", true)
+	
+	# Strip single line comments
+	var comment_regex = RegEx.new()
+	comment_regex.compile("#.*$")
+	stripped = comment_regex.sub(stripped, "", true)
+	
+	# Strip double quoted strings
+	var dquote_regex = RegEx.new()
+	dquote_regex.compile("\"(?:\\\\.|[^\"])*\"")
+	stripped = dquote_regex.sub(stripped, "", true)
+	
+	# Strip single quoted strings
+	var squote_regex = RegEx.new()
+	squote_regex.compile("'(?:\\\\.|[^'])*'")
+	stripped = squote_regex.sub(stripped, "", true)
+	
 	var pairs = [["\\(", "\\)"], ["\\[", "\\]"], ["\\{", "\\}"]]
+	var regex = RegEx.new()
 	for pair in pairs:
 		regex.compile(pair[0])
-		var open_count = regex.search_all(code).size()
+		var open_count = regex.search_all(stripped).size()
 		regex.compile(pair[1])
-		var close_count = regex.search_all(code).size()
+		var close_count = regex.search_all(stripped).size()
 		if open_count != close_count:
 			return false
 	return true
@@ -139,8 +188,22 @@ func replace_function(func_name: String, text: String):
 	var info = reader.find_function(func_name)
 	if not info.is_empty():
 		var editor = reader.get_current_code_edit()
-		editor.select(info.start_line, 0, info.end_line + 1, 0)
-		editor.insert_text_at_caret(text)
+		var ur = _get_undo_redo()
+		if ur:
+			ur.create_action("AI: Replace Function " + func_name)
+			# Select old function area
+			ur.add_do_method(editor, "select", info.start_line, 0, info.end_line + 1, 0)
+			# Insert new code (replaces selection)
+			ur.add_do_method(editor, "insert_text_at_caret", text)
+			
+			# To undo: select the new function area and insert the old text
+			var lines_in_new = text.count("\n")
+			ur.add_undo_method(editor, "select", info.start_line, 0, info.start_line + lines_in_new + 1, 0)
+			ur.add_undo_method(editor, "insert_text_at_caret", info.text)
+			ur.commit_action()
+		else:
+			editor.select(info.start_line, 0, info.end_line + 1, 0)
+			editor.insert_text_at_caret(text)
 		_save_if_needed()
 
 func append_text(text: String):
