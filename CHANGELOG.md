@@ -4,6 +4,30 @@ All notable changes to the AI Coding Assistant for Godot 4 are documented here.
 
 ---
 
+## [3.2.0] — 2026-03-18
+
+### ✨ Added
+
+- **Multi-Session Chat History** — Support for multiple independent conversations, stored and managed in `user://ai_sessions/`
+- **Automatic Session Naming** — New chats are automatically named based on the first user prompt for better organization
+- **Manual Session Management** — New Rename (✏️) and Delete (🗑️) controls added to the settings panel
+- **Apply/Undo Toggle** — The "Apply" button now toggles to "Undo" after code is applied, allowing instant reversal using Godot's Undo system
+- **File Mention System (@file)** — Integrated project-wide file search and context injection directly into chat prompts
+- **New Premium Identity** — Upgraded project branding with a modern minimalist vector logo design
+- **Persistent State** — All settings (API keys, models) and the last active session are now persisted across Godot restarts
+
+### 🔧 Changed
+
+- **Smart Apply Robustness** — Improved function detection using regex for more reliable code insertion
+- **Stability Overhaul** — Refined "replace full script" logic to resolve reported crashes in Godot 4.6
+
+### 🐛 Fixed
+
+- **Nil Reference Crashes** — Resolved initialization race conditions where UI was accessed before setup
+- **Parse Errors** — Fixed various GDScript parse errors related to type inference and duplicate declarations
+
+---
+
 ## [3.1.0] — 2026-03-06
 
 ### ✨ Added
