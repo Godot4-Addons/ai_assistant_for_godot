@@ -167,6 +167,8 @@ addons/ai_coding_assistant/
 
 ### Contributing
 
+We love community contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and our [CONTRIBUTORS.md](CONTRIBUTORS.md) to see who has helped build this project.
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
