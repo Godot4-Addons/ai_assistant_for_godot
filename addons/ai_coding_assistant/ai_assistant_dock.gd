@@ -111,6 +111,10 @@ func _setup_ui() -> void:
 	settings_ui.model_changed.connect(_on_model_changed)
 	settings_ui.api_key_changed.connect(_on_api_key_changed)
 	settings_ui.context_changed.connect(_on_context_changed)
+	settings_ui.new_session_requested.connect(_on_new_session_requested)
+	settings_ui.session_switched.connect(_on_session_switched)
+	settings_ui.session_renamed.connect(_on_session_renamed)
+	settings_ui.session_deleted.connect(_on_session_deleted)
 	settings_panel.add_child(settings_ui)
 	settings_ui.setup_providers(api_manager.get_provider_list())
 
@@ -131,12 +135,7 @@ func _setup_ui() -> void:
 	chat_ui.undo_requested.connect(func(): editor_integration.writer.perform_undo())
 	chat_container.add_child(chat_ui)
 	
-	# Load history into UI
-	for msg in api_manager.chat_history:
-		var sender = "User" if msg.role == "user" else "Assistant"
-		# Infer color from role
-		var color = AppTheme.COLOR_ACCENT_SOFT if msg.role == "user" else Color(0.9, 0.9, 0.9)
-		chat_ui.add_message(sender, msg.content, color)
+	_refresh_session_ui()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Chat Events
@@ -292,6 +291,46 @@ func _on_context_changed(context: String) -> void:
 
 func _on_clear_requested() -> void:
 	api_manager.clear_history()
+	_refresh_session_ui()
+
+func _on_new_session_requested() -> void:
+	api_manager.new_session()
+	_refresh_session_ui()
+
+func _on_session_switched(session_id: String) -> void:
+	api_manager.switch_session(session_id)
+	_refresh_session_ui()
+
+func _on_session_renamed(new_name: String) -> void:
+	api_manager.rename_session(new_name)
+	_refresh_session_ui()
+	_save_settings() # Save updated ID to config
+
+func _on_session_deleted(session_id: String) -> void:
+	chat_ui.show_confirmation(
+		"Are you sure you want to PERMANENTLY delete this session history?",
+		func(confirmed):
+			if confirmed:
+				api_manager.delete_session(session_id)
+				_refresh_session_ui()
+				_save_settings()
+	)
+
+func _refresh_session_ui():
+	# Clear UI
+	chat_ui.clear_chat_display()
+	
+	# Reload messages
+	for msg in api_manager.chat_history:
+		var sender = "User" if msg.role == "user" else "Assistant"
+		var color = AppTheme.COLOR_ACCENT_SOFT if msg.role == "user" else Color(0.9, 0.9, 0.9)
+		chat_ui.add_message(sender, msg.content, color)
+	
+	# Update session list dropdown in settings
+	settings_ui.set_session_list(api_manager.get_session_list(), api_manager.current_session_id)
+	
+	# Ensure model/mode labels are correct for the loaded session
+	chat_ui.set_model_label(api_manager.current_model)
 
 func _save_settings() -> void:
 	var config := ConfigFile.new()
@@ -299,6 +338,7 @@ func _save_settings() -> void:
 	config.set_value("ai_assistant", "provider", api_manager.api_provider)
 	config.set_value("ai_assistant", "model", api_manager.current_model)
 	config.set_value("ai_assistant", "global_context", api_manager.global_context)
+	config.set_value("ai_assistant", "current_session_id", api_manager.current_session_id)
 	config.save("user://ai_assistant_settings.cfg")
 
 func _load_settings() -> void:
@@ -308,11 +348,14 @@ func _load_settings() -> void:
 		var prov: String = config.get_value("ai_assistant", "provider", "gemini")
 		var model: String = config.get_value("ai_assistant", "model", "")
 		var context: String = config.get_value("ai_assistant", "global_context", "")
+		var session_id: String = config.get_value("ai_assistant", "current_session_id", "default")
 
 		api_manager.set_api_key(key)
 		api_manager.set_provider(prov)
 		if not model.is_empty(): api_manager.set_model(model)
 		api_manager.global_context = context
+		api_manager.current_session_id = session_id
+		api_manager.load_history() # Reload correct session
 
 		settings_ui.set_api_key(key)
 		settings_ui.set_model(api_manager.current_model)
