@@ -42,6 +42,9 @@ var _last_user_message: String = ""
 var _is_cancelling: bool = false # Guard against re-entrant cancel calls
 var editor_integration # Reference for file access (@ mentions)
 
+const HISTORY_FILE_PATH = "user://ai_chat_history.json"
+var persistent_history: Array = [] # UI history: [{"sender": s, "content": c, "color": col}]
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Signals
@@ -66,6 +69,7 @@ func _init() -> void:
 	_init_providers()
 	api_provider = "gemini"
 	current_model = GeminiProvider.get_default_model()
+	load_history()
 
 func _init_providers() -> void:
 	var providers = [GeminiProvider, GPTProvider, AnthropicProvider, GroqProvider, OpenRouterProvider]
@@ -193,8 +197,6 @@ func cancel_request() -> void:
 	_last_user_message = ""
 	_is_cancelling = false
 
-func clear_history() -> void:
-	chat_history.clear()
 
 func generate_code(prompt: String, language: String = "gdscript") -> void:
 	var ctx := "Generate clean %s code. Only return code." % language
@@ -290,6 +292,7 @@ func _on_request_completed() -> void:
 	if not _last_user_message.is_empty() and not full_res.is_empty():
 		chat_history.append({"role": "user", "content": _last_user_message})
 		chat_history.append({"role": "assistant", "content": full_res})
+		save_history()
 	_last_user_message = ""
 
 	response_received.emit(full_res)
@@ -297,3 +300,39 @@ func _on_request_completed() -> void:
 func _on_agent_finished(response: String) -> void:
 	response_received.emit(response)
 	agent_finished.emit(response)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Persistence
+# ─────────────────────────────────────────────────────────────────────────────
+
+func save_history():
+	var file = FileAccess.open(HISTORY_FILE_PATH, FileAccess.WRITE)
+	if file:
+		var data = {
+			"chat_history": chat_history,
+			"current_mode": current_mode,
+			"current_model": current_model,
+			"api_provider": api_provider
+		}
+		file.store_string(JSON.stringify(data))
+		file.close()
+
+func load_history():
+	if not FileAccess.file_exists(HISTORY_FILE_PATH):
+		return
+	var file = FileAccess.open(HISTORY_FILE_PATH, FileAccess.READ)
+	if file:
+		var json = JSON.new()
+		if json.parse(file.get_as_text()) == OK:
+			var data = json.data
+			if data.has("chat_history"): chat_history = data.chat_history
+			if data.has("current_mode"): current_mode = data.current_mode
+			if data.has("current_model"): current_model = data.current_model
+			if data.has("api_provider"): api_provider = data.api_provider
+		file.close()
+
+func clear_history() -> void:
+	chat_history.clear()
+	# Optional: delete the file too
+	if FileAccess.file_exists(HISTORY_FILE_PATH):
+		DirAccess.remove_absolute(HISTORY_FILE_PATH)

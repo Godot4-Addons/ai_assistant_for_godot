@@ -128,7 +128,15 @@ func _setup_ui() -> void:
 	chat_ui.clear_requested.connect(_on_clear_requested)
 	chat_ui.mode_requested.connect(func(mode): api_manager.current_mode = mode)
 	chat_ui.apply_code_requested.connect(_on_apply_code_requested)
+	chat_ui.undo_requested.connect(func(): editor_integration.writer.perform_undo())
 	chat_container.add_child(chat_ui)
+	
+	# Load history into UI
+	for msg in api_manager.chat_history:
+		var sender = "User" if msg.role == "user" else "Assistant"
+		# Infer color from role
+		var color = AppTheme.COLOR_ACCENT_SOFT if msg.role == "user" else Color(0.9, 0.9, 0.9)
+		chat_ui.add_message(sender, msg.content, color)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Chat Events
@@ -173,6 +181,7 @@ func _on_apply_code_requested(code: String) -> void:
 	
 	# Detect Smart Apply type
 	var apply_info = editor_integration.writer.detect_apply_type(processed_code)
+	print("AI Assistant: Apply Type detected: ", apply_info.type)
 	
 	if apply_info.type == "full_replace":
 		chat_ui.show_confirmation(
@@ -310,6 +319,7 @@ func _load_settings() -> void:
 		settings_ui.set_global_context(context)
 		chat_ui.set_model_label(api_manager.current_model)
 
-		var providers := api_manager.get_provider_list()
-		var p_idx := providers.find(prov)
+
+		var providers: Array = api_manager.get_provider_list()
+		var p_idx: int = providers.find(prov)
 		if p_idx >= 0: settings_ui.provider_option.selected = p_idx

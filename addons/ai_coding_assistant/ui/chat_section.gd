@@ -8,6 +8,7 @@ signal clear_requested
 signal mode_requested(mode: String)
 signal model_requested(model: String)
 signal apply_code_requested(code: String)
+signal undo_requested()
 
 const MessageCard = preload("res://addons/ai_coding_assistant/ui/chat_message.gd")
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
@@ -54,8 +55,9 @@ func _setup_ui() -> void:
 	chat_display.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	chat_display.add_theme_constant_override("separation", 10)
 	chat_display.child_entered_tree.connect(func(node):
-		if node is MessageCard:
+		if node is AIChatMessage:
 			node.apply_code_requested.connect(func(code): apply_code_requested.emit(code))
+			node.undo_requested.connect(func(): undo_requested.emit())
 	)
 	scroll_container.add_child(chat_display)
 
@@ -238,6 +240,10 @@ func show_confirmation(description: String, callback: Callable) -> void:
 	a_style.corner_radius_top_right = 4
 	a_style.corner_radius_bottom_left = 4
 	a_style.corner_radius_bottom_right = 4
+	a_style.content_margin_left = 12
+	a_style.content_margin_right = 12
+	a_style.content_margin_top = 4
+	a_style.content_margin_bottom = 4
 	allow_btn.add_theme_stylebox_override("normal", a_style)
 	btns.add_child(allow_btn)
 
@@ -249,6 +255,10 @@ func show_confirmation(description: String, callback: Callable) -> void:
 	d_style.corner_radius_top_right = 4
 	d_style.corner_radius_bottom_left = 4
 	d_style.corner_radius_bottom_right = 4
+	d_style.content_margin_left = 12
+	d_style.content_margin_right = 12
+	d_style.content_margin_top = 4
+	d_style.content_margin_bottom = 4
 	deny_btn.add_theme_stylebox_override("normal", d_style)
 	btns.add_child(deny_btn)
 
