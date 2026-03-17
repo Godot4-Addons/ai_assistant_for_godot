@@ -19,8 +19,13 @@ var settings_ui: AISettingsSection
 var settings_panel: PanelContainer
 var selection_toolbar: AISelectionToolbar
 
+var plugin_instance: EditorPlugin
+
 func _init() -> void:
 	name = "AI Assistant"
+
+func set_plugin_instance(plugin: EditorPlugin) -> void:
+	plugin_instance = plugin
 
 func set_editor_interface(editor_interface: EditorInterface) -> void:
 	plugin_editor_interface = editor_interface
@@ -40,7 +45,7 @@ func _ready() -> void:
 
 	# Set up editor integration
 	if plugin_editor_interface:
-		editor_integration = preload("res://addons/ai_coding_assistant/editor_integration.gd").new(plugin_editor_interface)
+		editor_integration = preload("res://addons/ai_coding_assistant/editor_integration.gd").new(plugin_editor_interface, plugin_instance)
 		api_manager.setup_agent(editor_integration, plugin_editor_interface)
 		selection_manager = SelectionManager.new(editor_integration.reader)
 		selection_manager.selection_updated.connect(_on_selection_updated)
@@ -117,6 +122,7 @@ func _setup_ui() -> void:
 
 	chat_ui = ChatSection.new()
 	chat_ui.set_available_modes(api_manager.available_modes)
+	chat_ui.set_editor_integration(editor_integration)
 	chat_ui.message_sent.connect(_on_chat_sent)
 	chat_ui.stop_requested.connect(_on_stop_requested)
 	chat_ui.clear_requested.connect(_on_clear_requested)
@@ -156,8 +162,56 @@ func _on_clear_selection_requested() -> void:
 		selection_manager.clear_selection()
 
 func _on_apply_code_requested(code: String) -> void:
-	if editor_integration:
-		editor_integration.insert_text_at_cursor(code)
+	if not editor_integration: return
+	
+	var processed_code = _filter_code_from_json(code)
+	
+	# Safety Check: Validate syntax before applying
+	if editor_integration.writer.has_method("validate_syntax"):
+		if not editor_integration.writer.validate_syntax(processed_code):
+			_on_error_received("Warning: AI generated code may have syntax errors (unmatched brackets).")
+	
+	# Detect Smart Apply type
+	var apply_info = editor_integration.writer.detect_apply_type(processed_code)
+	
+	if apply_info.type == "full_replace":
+		chat_ui.show_confirmation(
+			"This looks like a full script. Do you want to REPLACE the entire current file?",
+			func(confirmed):
+				if confirmed:
+					editor_integration.writer.create_backup(editor_integration.get_current_file_path())
+					editor_integration.writer.replace_all_text(processed_code)
+				else:
+					# Default to insert at cursor
+					editor_integration.writer.insert_text_at_cursor(processed_code)
+		)
+	elif apply_info.type == "function_replace":
+		var f_name = apply_info.get("func_name", "unknown")
+		chat_ui.show_confirmation(
+			"This matches function '%s'. Do you want to REPLACE the existing function?" % f_name,
+			func(confirmed):
+				if confirmed:
+					editor_integration.writer.create_backup(editor_integration.get_current_file_path())
+					editor_integration.writer.replace_function(f_name, processed_code)
+				else:
+					editor_integration.writer.insert_text_at_cursor(processed_code)
+		)
+	else:
+		# Standard insert
+		var current_path = editor_integration.get_current_file_path()
+		if not current_path.is_empty():
+			editor_integration.writer.create_backup(current_path)
+		editor_integration.insert_text_at_cursor(processed_code)
+
+func _filter_code_from_json(text: String) -> String:
+	# If the AI accidentally returned a JSON object with a 'code' field
+	var json := JSON.new()
+	if json.parse(text) == OK and typeof(json.data) == TYPE_DICTIONARY:
+		if json.data.has("code"):
+			return json.data["code"]
+		elif json.data.has("content"):
+			return json.data["content"]
+	return text
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PROCESS:

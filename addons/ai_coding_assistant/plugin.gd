@@ -9,6 +9,7 @@ func _enter_tree():
 	dock = dock_script.new()
 
 	# Pass the EditorInterface to the dock
+	dock.set_plugin_instance(self)
 	dock.set_editor_interface(get_editor_interface())
 
 	add_control_to_dock(DOCK_SLOT_LEFT_UL, dock)
