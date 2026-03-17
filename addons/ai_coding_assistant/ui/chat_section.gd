@@ -107,7 +107,6 @@ func _setup_ui() -> void:
 	input_field.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	input_field.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	input_vbox.add_child(input_field)
-
 	# ── Command bar ──
 	var cmd_hbox := HBoxContainer.new()
 	cmd_hbox.add_theme_constant_override("separation", 6)
@@ -290,6 +289,10 @@ func add_message(sender: String, text: String, color: Color = Color.WHITE) -> vo
 	var card := MessageCard.new(sender, text, color)
 	chat_display.add_child(card)
 	_scroll_to_bottom()
+
+func clear_chat_display() -> void:
+	for child in chat_display.get_children():
+		child.queue_free()
 
 func update_streaming_message(sender: String, text: String, color: Color = Color.WHITE) -> void:
 	_remove_thinking()
