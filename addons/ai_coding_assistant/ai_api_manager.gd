@@ -40,6 +40,7 @@ var _sse_client # SSEClient
 var _current_full_response: String = ""
 var _last_user_message: String = ""
 var _is_cancelling: bool = false # Guard against re-entrant cancel calls
+var editor_integration # Reference for file access (@ mentions)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -108,7 +109,8 @@ func remove_mode(id: String) -> void:
 # ─────────────────────────────────────────────────────────────────────────────
 
 ## Call this once from the dock after editor_integration is ready
-func setup_agent(editor_integration, editor_interface = null) -> void:
+func setup_agent(p_editor_integration, editor_interface = null) -> void:
+	editor_integration = p_editor_integration
 	if agent_loop:
 		agent_loop.queue_free()
 	agent_loop = AgentLoopClass.new(self , editor_integration, editor_interface)
@@ -132,16 +134,46 @@ func send_chat_request(message: String, context: String = "") -> void:
 
 	var mode_data = available_modes.get(current_mode, {"type": "chat"})
 	
+	# Process @file mentions
+	var processed_message = _process_mentions(message)
+	
 	# Route to agent if mode type is agent
 	if mode_data.type == "agent":
 		if not agent_loop:
 			error_occurred.emit("Agent loop not initialized. Please restart the dock.")
 			return
-		agent_loop.run(message)
+		agent_loop.run(processed_message)
 		return
 
 	# Chat mode — direct streaming
-	_send_raw_request(message, context, chat_history)
+	_send_raw_request(processed_message, context, chat_history)
+
+func _process_mentions(message: String) -> String:
+	var pattern = "@(res://[a-zA-Z0-9_\\/.]+|[a-zA-Z0-9_\\/.]+\\.[a-zA-Z]+)"
+	var regex = RegEx.new()
+	regex.compile(pattern)
+	
+	var matches = regex.search_all(message)
+	if matches.is_empty(): return message
+	
+	var file_contents := ""
+	var processed_paths := []
+	
+	for m in matches:
+		var path = m.get_string(1)
+		if path in processed_paths: continue
+		processed_paths.append(path)
+		
+		# Try to read the file
+		if editor_integration and editor_integration.reader:
+			var content = editor_integration.reader.read_file(path)
+			if not content.is_empty() and not content.begins_with("[Binary"):
+				var lang = "gdscript" if path.ends_with(".gd") else ("json" if path.ends_with(".json") else "text")
+				file_contents += "\n\nFile: `%s`\n```%s\n%s\n```\n" % [path, lang, content]
+				
+	if not file_contents.is_empty():
+		return message + "\n\nContext from referenced files:" + file_contents
+	return message
 
 ## Send a raw request on behalf of the agent loop (called by agent_loop internally)
 func send_agent_request(message: String, system_context: String, history: Array) -> void:

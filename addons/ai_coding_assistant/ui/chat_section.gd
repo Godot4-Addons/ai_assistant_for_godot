@@ -11,6 +11,7 @@ signal apply_code_requested(code: String)
 
 const MessageCard = preload("res://addons/ai_coding_assistant/ui/chat_message.gd")
 const AppTheme = preload("res://addons/ai_coding_assistant/ui/ui_theme.gd")
+const SuggestionPopup = preload("res://addons/ai_coding_assistant/ui/file_suggestion_popup.gd")
 
 var scroll_container: ScrollContainer
 var chat_display: VBoxContainer
@@ -18,6 +19,8 @@ var input_field: TextEdit
 var send_button: Button
 var mode_button: OptionButton
 var model_button: OptionButton
+var suggestion_popup: PanelContainer
+var editor_integration
 
 var _available_modes: Dictionary = {}
 
@@ -148,6 +151,17 @@ func _setup_ui() -> void:
 	send_button.add_theme_stylebox_override("normal", send_style)
 	send_button.pressed.connect(func(): _on_send_pressed(input_field.text))
 	cmd_hbox.add_child(send_button)
+
+	# ── Suggestion Popup ──
+	suggestion_popup = SuggestionPopup.new()
+	add_child(suggestion_popup)
+	suggestion_popup.file_selected.connect(_on_file_selected)
+	
+	input_field.text_changed.connect(_on_input_text_changed)
+	input_field.gui_input.connect(_on_input_gui_input)
+
+func set_editor_integration(integration) -> void:
+	editor_integration = integration
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Agent Status UI
@@ -351,3 +365,71 @@ func _on_send_pressed(text: String) -> void:
 	if text.strip_edges().is_empty(): return
 	input_field.clear()
 	message_sent.emit(text)
+
+func _on_input_text_changed() -> void:
+	var text = input_field.text
+	var cursor_pos = input_field.get_caret_column()
+	var line_idx = input_field.get_caret_line()
+	var line = input_field.get_line(line_idx)
+	
+	var text_before = line.substr(0, cursor_pos)
+	var at_index = text_before.rfind("@")
+	
+	if at_index != -1:
+		var filter = text_before.substr(at_index + 1)
+		if not filter.contains(" "):
+			_show_suggestions(filter)
+			return
+			
+	suggestion_popup.hide()
+
+func _show_suggestions(filter: String) -> void:
+	if not editor_integration: return
+	
+	var files = editor_integration.list_files("res://")
+	# Basic filtering to avoid too many files initially
+	var relevant_files = []
+	for f in files:
+		if f.ends_with(".gd") or f.ends_with(".tscn") or f.ends_with(".md"):
+			relevant_files.append(f)
+			
+	suggestion_popup.set_files(relevant_files)
+	suggestion_popup.update_filter(filter)
+	
+	if suggestion_popup.item_list.get_item_count() > 0:
+		suggestion_popup.show()
+		# Use global position for reliability in nested layouts
+		var char_pos = input_field.get_caret_draw_pos()
+		suggestion_popup.global_position = input_field.global_position + char_pos + Vector2(0, -suggestion_popup.size.y - 10)
+	else:
+		suggestion_popup.hide()
+
+func _on_input_gui_input(event: InputEvent) -> void:
+	if suggestion_popup.visible:
+		if event is InputEventKey and event.pressed:
+			if event.keycode == KEY_UP:
+				suggestion_popup.move_selection(-1)
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_DOWN:
+				suggestion_popup.move_selection(1)
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_ENTER or event.keycode == KEY_TAB:
+				suggestion_popup.select_current()
+				get_viewport().set_input_as_handled()
+			elif event.keycode == KEY_ESCAPE:
+				suggestion_popup.hide()
+				get_viewport().set_input_as_handled()
+
+func _on_file_selected(path: String) -> void:
+	var line_idx = input_field.get_caret_line()
+	var cursor_pos = input_field.get_caret_column()
+	var line = input_field.get_line(line_idx)
+	var text_before = line.substr(0, cursor_pos)
+	var at_index = text_before.rfind("@")
+	
+	if at_index != -1:
+		var new_line = line.substr(0, at_index) + "@" + path + " " + line.substr(cursor_pos)
+		input_field.set_line(line_idx, new_line)
+		input_field.set_caret_column(at_index + path.length() + 2)
+	
+	suggestion_popup.hide()
