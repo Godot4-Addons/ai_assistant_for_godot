@@ -20,9 +20,8 @@ func get_current_code_edit() -> CodeEdit:
 	return editor.get_base_editor()
 
 func get_current_file_path() -> String:
-	var editor = get_current_script_editor()
-	if not editor: return ""
-	var script = editor.get_edited_resource()
+	if not script_editor: return ""
+	var script = script_editor.get_current_script()
 	return script.resource_path if script else ""
 
 func get_all_text() -> String:
@@ -135,6 +134,17 @@ func read_file(path: String) -> String:
 	var file = FileAccess.open(path, FileAccess.READ)
 	if not file: return ""
 	return file.get_as_text()
+
+func read_file_as_array(path: String) -> Array[String]:
+	var content = read_file(path)
+	if content.is_empty() or content.begins_with("[Binary file omitted"):
+		return []
+	
+	var lines: Array[String] = []
+	var raw_lines = content.split("\n")
+	for line in raw_lines:
+		lines.append(line)
+	return lines
 
 func search_files(pattern: String, dir_path: String = "res://") -> Array:
 	var results = []

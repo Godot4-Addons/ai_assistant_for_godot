@@ -8,11 +8,13 @@ const Writer = preload("res://addons/ai_coding_assistant/editor/editor_writer.gd
 var reader: AIEditorReader
 var writer: AIEditorWriter
 var editor_interface: EditorInterface
+var plugin_instance: EditorPlugin
 
-func _init(interface: EditorInterface):
+func _init(interface: EditorInterface, plugin: EditorPlugin = null):
 	editor_interface = interface
+	plugin_instance = plugin
 	reader = Reader.new(interface)
-	writer = Writer.new(interface, reader)
+	writer = Writer.new(interface, reader, plugin)
 
 # Delegate methods
 func get_all_text() -> String: return reader.get_all_text()
