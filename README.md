@@ -1,11 +1,11 @@
 <div align="center">
   <img src="img/logo_static.svg" alt="AI Coding Assistant Logo" width="128" height="128">
 
-# 🤖 AI Coding Assistant for Godot 4 — v3.1.0
+# 🤖 AI Coding Assistant for Godot 4 — v3.2.0
 
 [![Godot 4.x](https://img.shields.io/badge/Godot-4.x-blue.svg)](https://godotengine.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/Version-3.1.0-green.svg)](https://github.com/Godot4-Addons/ai_assistant_for_godot/releases)
+[![Version](https://img.shields.io/badge/Version-3.2.0-green.svg)](https://github.com/Godot4-Addons/ai_assistant_for_godot/releases)
 
 **A professional AI coding assistant plugin for Godot 4 with an agentic code system, syntax highlighting, and real-time streaming markdown rendering.**
 
@@ -23,7 +23,7 @@
 
 ---
 
-## ✨ What's New in v3.1.0
+## ✨ What's New in v3.2.0
 
 - 🚀 **Real-time Markdown Streaming** — See beautiful markdown and syntax-highlighted code blocks generate live as the AI types
 - ✨ **Apply Code Directly** — Click "Apply" on any generated code block to instantly insert (or replace selection) into your Godot script
