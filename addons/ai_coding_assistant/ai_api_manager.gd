@@ -42,8 +42,8 @@ var _last_user_message: String = ""
 var _is_cancelling: bool = false # Guard against re-entrant cancel calls
 var editor_integration # Reference for file access (@ mentions)
 
-const HISTORY_FILE_PATH = "user://ai_chat_history.json"
-var persistent_history: Array = [] # UI history: [{"sender": s, "content": c, "color": col}]
+const SESSIONS_DIR = "user://ai_sessions/"
+var current_session_id: String = "default"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -69,6 +69,10 @@ func _init() -> void:
 	_init_providers()
 	api_provider = "gemini"
 	current_model = GeminiProvider.get_default_model()
+	
+	if not DirAccess.dir_exists_absolute(SESSIONS_DIR):
+		DirAccess.make_dir_recursive_absolute(SESSIONS_DIR)
+	
 	load_history()
 
 func _init_providers() -> void:
@@ -292,7 +296,15 @@ func _on_request_completed() -> void:
 	if not _last_user_message.is_empty() and not full_res.is_empty():
 		chat_history.append({"role": "user", "content": _last_user_message})
 		chat_history.append({"role": "assistant", "content": full_res})
-		save_history()
+		
+		# Auto-naming for new sessions
+		if chat_history.size() == 2 and current_session_id.begins_with("chat_"):
+			var auto_name = _last_user_message.strip_edges().left(30)
+			if auto_name.is_empty(): auto_name = "Untitled Chat"
+			rename_session(auto_name)
+		else:
+			save_history()
+			
 	_last_user_message = ""
 
 	response_received.emit(full_res)
@@ -302,11 +314,12 @@ func _on_agent_finished(response: String) -> void:
 	agent_finished.emit(response)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Persistence
+# Persistence & Sessions
 # ─────────────────────────────────────────────────────────────────────────────
 
 func save_history():
-	var file = FileAccess.open(HISTORY_FILE_PATH, FileAccess.WRITE)
+	var path = SESSIONS_DIR.path_join(current_session_id + ".json")
+	var file = FileAccess.open(path, FileAccess.WRITE)
 	if file:
 		var data = {
 			"chat_history": chat_history,
@@ -317,10 +330,16 @@ func save_history():
 		file.store_string(JSON.stringify(data))
 		file.close()
 
-func load_history():
-	if not FileAccess.file_exists(HISTORY_FILE_PATH):
+func load_history(session_id: String = ""):
+	if not session_id.is_empty():
+		current_session_id = session_id
+		
+	var path = SESSIONS_DIR.path_join(current_session_id + ".json")
+	if not FileAccess.file_exists(path):
+		chat_history = []
 		return
-	var file = FileAccess.open(HISTORY_FILE_PATH, FileAccess.READ)
+		
+	var file = FileAccess.open(path, FileAccess.READ)
 	if file:
 		var json = JSON.new()
 		if json.parse(file.get_as_text()) == OK:
@@ -331,8 +350,71 @@ func load_history():
 			if data.has("api_provider"): api_provider = data.api_provider
 		file.close()
 
+func new_session():
+	# Save current first
+	save_history()
+	# Generate new ID based on timestamp
+	current_session_id = "chat_" + str(Time.get_unix_time_from_system())
+	chat_history = []
+	save_history()
+
+func get_session_list() -> Array:
+	var list: Array = []
+	var dir = DirAccess.open(SESSIONS_DIR)
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(".json"):
+				list.append(file_name.get_basename())
+			file_name = dir.get_next()
+	return list
+
+func switch_session(session_id: String):
+	save_history()
+	load_history(session_id)
+
+func delete_session(session_id: String):
+	var path = SESSIONS_DIR.path_join(session_id + ".json")
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	
+	if session_id == current_session_id:
+		var remaining = get_session_list()
+		if remaining.size() > 0:
+			switch_session(remaining[0])
+		else:
+			new_session()
+
+func rename_session(new_name: String):
+	if new_name.is_empty() or new_name == current_session_id:
+		return
+		
+	# Sanitize name
+	var safe_name = ""
+	var allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_- "
+	for i in range(new_name.length()):
+		if new_name[i] in allowed:
+			safe_name += new_name[i]
+	safe_name = safe_name.strip_edges().replace(" ", "_")
+	if safe_name.is_empty(): safe_name = "unnamed_session"
+	
+	var old_path = SESSIONS_DIR.path_join(current_session_id + ".json")
+	var new_path = SESSIONS_DIR.path_join(safe_name + ".json")
+	
+	# Handle collisions
+	if FileAccess.file_exists(new_path) and safe_name != current_session_id:
+		safe_name += "_" + str(Time.get_unix_time_from_system()).right(4)
+		new_path = SESSIONS_DIR.path_join(safe_name + ".json")
+
+	if FileAccess.file_exists(old_path):
+		DirAccess.rename_absolute(old_path, new_path)
+		
+	current_session_id = safe_name
+	save_history() # Ensure it's saved with correct ID
+
 func clear_history() -> void:
 	chat_history.clear()
-	# Optional: delete the file too
-	if FileAccess.file_exists(HISTORY_FILE_PATH):
-		DirAccess.remove_absolute(HISTORY_FILE_PATH)
+	var path = SESSIONS_DIR.path_join(current_session_id + ".json")
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
