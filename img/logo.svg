@@ -1,24 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated logo with text phrases">
   <!-- Outer circle -->
-  <circle cx="64" cy="64" r="62" fill="#478CBF" stroke="#2E5C8A" stroke-width="4"/>
+  <circle cx="64" cy="64" r="62" fill="#0E1621" stroke="#00FFFF" stroke-width="4"/>
   
-  <!-- Robot face inspired by Godot -->
-  <rect x="32" y="40" width="64" height="48" rx="12" ry="12" fill="#FFFFFF" stroke="#2E5C8A" stroke-width="4"/>
+  <!-- Robot face silhouette -->
+  <path d="M32 40 h64 v36 a12 12 0 0 1 -12 12 h-40 a12 12 0 0 1 -12 -12 z" fill="#00FFFF" opacity="0.1"/>
+  <rect x="32" y="40" width="64" height="48" rx="12" ry="12" fill="none" stroke="#00FFFF" stroke-width="4"/>
+  
   <!-- Eyes -->
-  <circle cx="48" cy="64" r="8" fill="#478CBF"/>
-  <circle cx="80" cy="64" r="8" fill="#478CBF"/>
+  <circle cx="48" cy="64" r="8" fill="#00FFFF"/>
+  <circle cx="80" cy="64" r="8" fill="#00FFFF"/>
+  <circle cx="80" cy="64" r="3" fill="#0E1621"/>
+  
   <!-- Pixel-style smile -->
-  <path d="M50 84 L78 84" stroke="#2E5C8A" stroke-width="4" stroke-linecap="round"/>
+  <path d="M54 84 h20" stroke="#00FFFF" stroke-width="4" stroke-linecap="round"/>
 
-  <!-- Neural/AI Spark on forehead -->
+  <!-- Neural core -->
   <g transform="translate(64, 48)">
-    <circle cx="0" cy="0" r="5" fill="#FFA500"/>
-    <line x1="0" y1="-5" x2="0" y2="-20" stroke="#FFA500" stroke-width="3"/>
-    <line x1="0" y1="-20" x2="8" y2="-28" stroke="#FFA500" stroke-width="3"/>
-    <line x1="0" y1="-20" x2="-8" y2="-28" stroke="#FFA500" stroke-width="3"/>
-    <circle cx="8" cy="-28" r="3" fill="#FFA500"/>
-    <circle cx="-8" cy="-28" r="3" fill="#FFA500"/>
+    <circle cx="0" cy="0" r="12" fill="#00FFFF" opacity="0.2"/>
+    <circle cx="0" cy="0" r="4" fill="#00FFFF"/>
+    <path d="M-10 -10 L10 10 M-10 10 L10 -10" stroke="#00FFFF" stroke-width="1" opacity="0.5"/>
   </g>
 
   <!-- Animated Text -->
