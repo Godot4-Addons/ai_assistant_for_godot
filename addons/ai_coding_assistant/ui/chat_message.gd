@@ -7,6 +7,7 @@ const MarkdownLabelClass = preload("res://addons/ai_coding_assistant/markdownlab
 const CodeHighlighterScript = preload("res://addons/ai_coding_assistant/markdownlabel/syntax_highlighter.gd")
 
 signal apply_code_requested(code: String)
+signal undo_requested()
 
 var sender_label: Label
 var time_label: Label
@@ -14,7 +15,7 @@ var body_container: VBoxContainer
 var _full_text: String = ""
 var _is_streaming: bool = false
 var _highlighter = CodeHighlighterScript.new()
-var _segment_nodes: Array = []
+var _segment_nodes: Array = [] # Array of Dicts: {type, root, ..., is_applied}
 
 func _init(sender: String, content: String, color: Color):
 	_setup_ui(sender, content, color)
@@ -99,6 +100,8 @@ func _update_code_block(node_dict: Dictionary, language: String, code: String) -
 	if is_instance_valid(node_dict.lang_label):
 		node_dict.lang_label.text = language if language != "" else "code"
 	
+	node_dict.last_code = code
+	
 	if is_instance_valid(node_dict.copy_btn):
 		node_dict.copy_btn.disconnect("pressed", node_dict.copy_fn)
 		node_dict.copy_fn = func(): _copy_code(code, node_dict.copy_btn)
@@ -106,7 +109,12 @@ func _update_code_block(node_dict: Dictionary, language: String, code: String) -
 		
 	if is_instance_valid(node_dict.apply_btn):
 		node_dict.apply_btn.disconnect("pressed", node_dict.apply_fn)
-		node_dict.apply_fn = func(): _apply_code(code, node_dict.apply_btn)
+		if node_dict.get("is_applied", false):
+			node_dict.apply_btn.text = "  🔙 Undo  "
+			node_dict.apply_fn = func(): _undo_code(node_dict)
+		else:
+			node_dict.apply_btn.text = "  ✨ Apply  "
+			node_dict.apply_fn = func(): _apply_code(code, node_dict)
 		node_dict.apply_btn.pressed.connect(node_dict.apply_fn)
 	
 	if is_instance_valid(node_dict.code_label):
@@ -247,7 +255,9 @@ func _add_code_block(language: String, code: String) -> Dictionary:
 		"copy_btn": copy_btn,
 		"copy_fn": copy_fn,
 		"apply_btn": apply_btn,
-		"apply_fn": apply_fn
+		"apply_fn": apply_fn,
+		"is_applied": false,
+		"last_code": code
 	}
 
 func _copy_code(code: String, btn: Button) -> void:
@@ -260,15 +270,31 @@ func _copy_code(code: String, btn: Button) -> void:
 			btn.text = "  📋 Copy  "
 	)
 
-func _apply_code(code: String, btn: Button) -> void:
+func _apply_code(code: String, node_dict: Dictionary) -> void:
 	apply_code_requested.emit(code)
-	btn.text = "  🚀 Applied!  "
-	# Reset after 2 seconds
-	var timer = get_tree().create_timer(2.0)
-	timer.timeout.connect(func():
-		if is_instance_valid(btn):
-			btn.text = "  ✨ Apply  "
-	)
+	node_dict.is_applied = true
+	if is_instance_valid(node_dict.apply_btn):
+		node_dict.apply_btn.text = "  🔙 Undo  "
+		node_dict.apply_btn.disconnect("pressed", node_dict.apply_fn)
+		node_dict.apply_fn = func(): _undo_code(node_dict)
+		node_dict.apply_btn.pressed.connect(node_dict.apply_fn)
+
+func _undo_code(node_dict: Dictionary) -> void:
+	undo_requested.emit()
+	node_dict.is_applied = false
+	if is_instance_valid(node_dict.apply_btn):
+		node_dict.apply_btn.text = "  ✨ Apply  "
+		node_dict.apply_btn.disconnect("pressed", node_dict.apply_fn)
+		# We need the original code here, which is in segments. 
+		# But since this is a closure for the specific node_dict, 
+		# we can just re-render or pull it.
+		# For now, let's keep it simple.
+		# Actually, we need to pass the code back.
+		# I'll modify reconcile_segments to re-bind if needed, 
+		# or I can store 'last_code' in node_dict.
+		var last_code = node_dict.get("last_code", "")
+		node_dict.apply_fn = func(): _apply_code(last_code, node_dict)
+		node_dict.apply_btn.pressed.connect(node_dict.apply_fn)
 
 func append_content(new_text: String):
 	_full_text += new_text
