@@ -39,6 +39,7 @@ var _pending_confirm: Dictionary = {} # { confirm_callable }
 var max_iterations: int = 15
 var enable_planning: bool = true
 var auto_save_memory: bool = true
+var _git_available: bool = false
 
 ## Internal guard to prevent re-entrant stop calls
 var _is_stopping: bool = false
@@ -55,6 +56,16 @@ func _init(api_manager, editor_integration, editor_interface = null) -> void:
 	_loop_guard.limit_reached.connect(func(reason): _force_stop(reason))
 	_permissions.permission_requested.connect(_on_permission_requested)
 	_tools.tool_executed.connect(_on_tool_complete)
+	
+	_check_git_availability()
+
+func _check_git_availability() -> void:
+	# Check for git presence
+	var version_out: Array[String] = []
+	var res: int = OS.execute("git", ["--version"], version_out, true)
+	_git_available = (res == 0)
+	if not _git_available:
+		agent_thinking.emit("⚠️ Git is not installed or not in PATH. Fallback backup system is enabled.")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Public API
@@ -81,7 +92,6 @@ func run(task: String) -> void:
 
 	_send_to_ai(task)
 
-## Stop the agent mid-loop — safe to call from any context
 func stop() -> void:
 	if _is_stopping:
 		return
@@ -136,6 +146,26 @@ func _process_response(response: String) -> void:
 
 	# Execute tools
 	_set_state(State.EXECUTING)
+	
+	# Git Safety Check
+	var dirty_files := _get_dirty_files(tool_calls)
+	if not dirty_files.is_empty():
+		if _git_available:
+			var msg := "⚠️ The following files have uncommitted changes: %s. Please commit them using <git command=\"commit\" args=\"-m '...'\" /> before modifying them further to ensure you can revert if needed." % ", ".join(dirty_files)
+			_memory.add_agent_thought(msg)
+			agent_thinking.emit(msg)
+		else:
+			# Fallback: Create backups automatically
+			var backups := []
+			for file in dirty_files:
+				var backup_path = _tools._editor_integration.writer.create_backup(file)
+				if not backup_path.is_empty():
+					backups.append(backup_path.get_file())
+			if not backups.is_empty():
+				var msg := "🛡️ Git not found. Created emergency backups for dirty files: %s" % ", ".join(backups)
+				_memory.add_agent_thought(msg)
+				agent_thinking.emit(msg)
+	
 	var tool_results: Array[String] = []
 
 	for call in tool_calls:
@@ -247,6 +277,28 @@ func _force_stop(reason: String) -> void:
 		_api_manager._sse_client.cancel()
 	_finish_with_message("[Agent stopped: %s]\n\n%s" % [reason, _current_response])
 	_is_stopping = false
+
+func _get_dirty_files(tool_calls: Array) -> Array[String]:
+	var dirty: Array[String] = []
+	for call in tool_calls:
+		var tool: String = call.get("tool", "")
+		if tool in ["write_file", "patch_file", "delete_file"]:
+			var path: String = call.get("args", {}).get("path", "")
+			if not path.is_empty():
+				if _git_available:
+					if _is_file_dirty(path):
+						dirty.append(path)
+				else:
+					# If git is missing, treat all modified files as dirty to ensure backups
+					dirty.append(path)
+	return dirty
+
+func _is_file_dirty(path: String) -> bool:
+	var output: Array[String] = []
+	var res: int = OS.execute("git", ["status", "--porcelain", ProjectSettings.globalize_path(path)], output, true)
+	if res == 0 and not output.is_empty() and not output[0].strip_edges().is_empty():
+		return true
+	return false
 
 func _set_state(new_state: State) -> void:
 	state = new_state
