@@ -70,6 +70,11 @@ func _register_all_tools() -> void:
 			"dir": {"type": "String", "required": false, "desc": "Directory to search in (default: res://)"}
 		},
 		_tool_search_files)
+ 
+	register_tool("get_file_summaries",
+		"Quickly scan multiple files to get their class structure (class_name, extends, signals, public functions). Use this to map architecture without reading full files.",
+		{"paths": {"type": "Array", "required": true, "desc": "List of file paths to summarize"}},
+		_tool_get_file_summaries)
 
 	register_tool("create_directory",
 		"Create a new directory (and any missing parents).",
@@ -287,6 +292,12 @@ func _tool_search_files(args: Dictionary) -> Dictionary:
 	if pattern.is_empty(): return {"error": "Missing pattern"}
 	if not _editor_integration: return {"error": "No editor integration"}
 	return {"data": _editor_integration.search_files(pattern, dir)}
+
+func _tool_get_file_summaries(args: Dictionary) -> Dictionary:
+	var paths: Array = args.get("paths", [])
+	if paths.is_empty(): return {"error": "Missing paths"}
+	if not _editor_integration: return {"error": "No editor integration"}
+	return {"data": _editor_integration.get_file_summaries(paths)}
 
 func _tool_create_directory(args: Dictionary) -> Dictionary:
 	var path: String = args.get("path", "")

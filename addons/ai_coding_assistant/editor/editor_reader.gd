@@ -165,18 +165,41 @@ func search_files(pattern: String, dir_path: String = "res://") -> Array:
 		
 		var matches = regex.search_all(content)
 		if matches.size() > 0:
-			var file_results = {"path": path, "matches": []}
-			# Sample up to 3 matches for brevity in prompt context
-			for i in range(min(matches.size(), 3)):
+			var file_results = {"path": path, "matches": [], "total_matches": matches.size()}
+			# Sample up to 5 matches for better planning context
+			for i in range(min(matches.size(), 5)):
 				var m = matches[i]
 				var line_num = content.substr(0, m.get_start()).count("\n") + 1
-				var start = max(0, content.rfind("\n", m.get_start()))
-				var end = content.find("\n", m.get_end())
-				if end == -1: end = content.length()
-				var line_text = content.substr(start, end - start).strip_edges()
+				
+				# Get line text with a bit of context
+				var line_start = content.rfind("\n", m.get_start()) + 1
+				var line_end = content.find("\n", m.get_end())
+				if line_end == -1: line_end = content.length()
+				var line_text = content.substr(line_start, line_end - line_start).strip_edges()
+				
 				file_results.matches.append({"line": line_num, "text": line_text})
 			results.append(file_results)
 	return results
+
+func get_file_summaries(paths: Array) -> Array:
+	var summaries = []
+	for path in paths:
+		if not FileAccess.file_exists(path): continue
+		var content = read_file(path)
+		if content.is_empty() or content.begins_with("[Binary"): continue
+		
+		var info = {"path": path, "class_name": "", "extends": "", "signals": [], "functions": []}
+		var lines = content.split("\n")
+		for l in lines:
+			var s = l.strip_edges()
+			if s.begins_with("class_name "): info.class_name = s.split(" ")[1]
+			elif s.begins_with("extends "): info.extends = s.split(" ")[1]
+			elif s.begins_with("signal "): info.signals.append(s.split("(")[0].split(" ")[1])
+			elif s.begins_with("func ") and not s.begins_with("func _"):
+				# Only public functions for the summary
+				info.functions.append(s.split("(")[0].split(" ")[1])
+		summaries.append(info)
+	return summaries
 
 func _get_all_files(path: String) -> Array:
 	var files = []

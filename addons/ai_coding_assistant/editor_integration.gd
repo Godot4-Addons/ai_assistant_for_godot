@@ -45,6 +45,7 @@ func read_file(path: String) -> String: return reader.read_file(path)
 func write_file(path: String, content: String) -> bool: return writer.write_file(path, content)
 func delete_file(path: String) -> bool: return writer.delete_file(path)
 func search_files(p: String, d: String = "res://") -> Array: return reader.search_files(p, d)
+func get_file_summaries(paths: Array) -> Array: return reader.get_file_summaries(paths)
 func patch_file(p: String, s: String, r: String) -> bool: return writer.patch_file(p, s, r)
 
 func open_scene(path: String):
