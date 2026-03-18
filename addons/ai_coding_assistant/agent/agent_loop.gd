@@ -210,13 +210,13 @@ func _process_response(response: String) -> void:
 		_memory.add_tool_result(tool_name, args, result)
 		var result_str := _tools.format_result_for_prompt(tool_name, args, result)
 		tool_results.append(result_str)
-	
-	# Update results hash for the loop guard (to detect if we're actually making progress)
-	_last_results_hash = str("\n".join(tool_results).hash())
 
 		# Safety check — if stopped while executing tools, abort
 		if state == State.IDLE:
 			return
+	
+	# Update results hash for the loop guard (to detect if we're actually making progress)
+	_last_results_hash = str("\n".join(tool_results).hash())
 
 	# Feed results back as the next message
 	_set_state(State.WAITING_RESPONSE)
