@@ -12,19 +12,20 @@ const GPTProvider = preload("res://addons/ai_coding_assistant/ai_provider/gpt.gd
 const AnthropicProvider = preload("res://addons/ai_coding_assistant/ai_provider/anthropic.gd")
 const GroqProvider = preload("res://addons/ai_coding_assistant/ai_provider/groq.gd")
 const OpenRouterProvider = preload("res://addons/ai_coding_assistant/ai_provider/openrouter.gd")
+const CustomProvider = preload("res://addons/ai_coding_assistant/ai_provider/custom.gd")
 const AgentLoopClass = preload("res://addons/ai_coding_assistant/agent/agent_loop.gd")
 
 # API state
 var api_key: String = ""
 var api_provider: String = "gemini"
+var api_base_url: String = ""
 var current_model: String = ""
-var provider_handlers: Dictionary = {}
-var base_urls: Dictionary = {}
 var global_context: String = ""
 var current_mode: String = "chat"
 
 var available_modes: Dictionary = {
 	"chat": {"label": "Chat", "icon": "💬", "type": "chat"},
+	"venice": {"label": "Venice", "icon": "🔓", "type": "chat"},
 	"code": {"label": "Code", "icon": "⚙️", "type": "agent"},
 	"auto": {"label": "Auto", "icon": "🤖", "type": "agent"}
 }
@@ -44,6 +45,10 @@ var editor_integration # Reference for file access (@ mentions)
 
 const SESSIONS_DIR = "user://ai_sessions/"
 var current_session_id: String = "default"
+
+# Provider handlers
+var provider_handlers: Dictionary = {}
+var base_urls: Dictionary = {}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -76,7 +81,7 @@ func _init() -> void:
 	load_history()
 
 func _init_providers() -> void:
-	var providers = [GeminiProvider, GPTProvider, AnthropicProvider, GroqProvider, OpenRouterProvider]
+	var providers = [GeminiProvider, GPTProvider, AnthropicProvider, GroqProvider, OpenRouterProvider, CustomProvider]
 	for provider in providers:
 		var pname: String = provider.get_name()
 		provider_handlers[pname] = provider
@@ -95,6 +100,7 @@ func set_api_key(key: String) -> void:
 func set_provider(provider: String) -> void:
 	if provider in provider_handlers:
 		api_provider = provider
+		api_base_url = provider_handlers[provider].get_base_url()
 		current_model = provider_handlers[provider].get_default_model()
 	else:
 		push_error("Unsupported provider: " + provider)
@@ -228,7 +234,8 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 		model_to_use = provider_handlers[api_provider].get_default_model()
 
 	var request_data: Dictionary = provider_handlers[api_provider].build_request(
-		base_urls[api_provider], api_key, model_to_use, message, history, final_context
+		api_base_url if not api_base_url.is_empty() else base_urls[api_provider], 
+		api_key, model_to_use, message, history, final_context
 	)
 
 	# Inject streaming flag
@@ -325,7 +332,8 @@ func save_history():
 			"chat_history": chat_history,
 			"current_mode": current_mode,
 			"current_model": current_model,
-			"api_provider": api_provider
+			"api_provider": api_provider,
+			"api_base_url": api_base_url
 		}
 		file.store_string(JSON.stringify(data))
 		file.close()
@@ -348,6 +356,7 @@ func load_history(session_id: String = ""):
 			if data.has("current_mode"): current_mode = data.current_mode
 			if data.has("current_model"): current_model = data.current_model
 			if data.has("api_provider"): api_provider = data.api_provider
+			if data.has("api_base_url"): api_base_url = data.api_base_url
 		file.close()
 
 func new_session():

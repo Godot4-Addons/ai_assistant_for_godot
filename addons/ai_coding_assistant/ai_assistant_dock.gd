@@ -109,6 +109,7 @@ func _setup_ui() -> void:
 	settings_ui = SettingsSection.new()
 	settings_ui.provider_changed.connect(_on_provider_changed)
 	settings_ui.model_changed.connect(_on_model_changed)
+	settings_ui.base_url_changed.connect(_on_base_url_changed)
 	settings_ui.api_key_changed.connect(_on_api_key_changed)
 	settings_ui.context_changed.connect(_on_context_changed)
 	settings_ui.new_session_requested.connect(_on_new_session_requested)
@@ -281,6 +282,10 @@ func _on_model_changed(model: String) -> void:
 	api_manager.set_model(model)
 	_save_settings()
 
+func _on_base_url_changed(url: String) -> void:
+	api_manager.api_base_url = url
+	_save_settings()
+
 func _on_api_key_changed(key: String) -> void:
 	api_manager.set_api_key(key)
 	_save_settings()
@@ -337,6 +342,7 @@ func _save_settings() -> void:
 	config.set_value("ai_assistant", "api_key", api_manager.api_key)
 	config.set_value("ai_assistant", "provider", api_manager.api_provider)
 	config.set_value("ai_assistant", "model", api_manager.current_model)
+	config.set_value("ai_assistant", "api_base_url", api_manager.api_base_url)
 	config.set_value("ai_assistant", "global_context", api_manager.global_context)
 	config.set_value("ai_assistant", "current_session_id", api_manager.current_session_id)
 	config.save("user://ai_assistant_settings.cfg")
@@ -359,6 +365,7 @@ func _load_settings() -> void:
 
 		settings_ui.set_api_key(key)
 		settings_ui.set_model(api_manager.current_model)
+		settings_ui.set_base_url(api_manager.api_base_url)
 		settings_ui.set_global_context(context)
 		chat_ui.set_model_label(api_manager.current_model)
 

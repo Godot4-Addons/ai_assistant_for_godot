@@ -4,6 +4,7 @@ class_name AISettingsSection
 
 signal provider_changed(provider: String)
 signal model_changed(model: String)
+signal base_url_changed(url: String)
 signal api_key_changed(key: String)
 signal context_changed(text: String)
 signal new_session_requested()
@@ -13,6 +14,7 @@ signal session_deleted(session_id: String)
 
 var provider_option: OptionButton
 var model_field: LineEdit
+var base_url_field: LineEdit
 var api_key_field: LineEdit
 var context_field: TextEdit
 var session_option: OptionButton
@@ -55,6 +57,21 @@ func _setup_ui():
 	model_hbox.add_child(model_label)
 	model_hbox.add_child(model_field)
 	settings_content.add_child(model_hbox)
+
+	# Base URL (for custom provider)
+	var url_hbox = HBoxContainer.new()
+	var url_label = Label.new()
+	url_label.text = "Base URL:"
+	url_label.custom_minimum_size = Vector2(80, 0)
+	
+	base_url_field = LineEdit.new()
+	base_url_field.placeholder_text = "e.g. https://api.openai.com/v1/"
+	base_url_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	base_url_field.text_changed.connect(func(t): base_url_changed.emit(t))
+	
+	url_hbox.add_child(url_label)
+	url_hbox.add_child(base_url_field)
+	settings_content.add_child(url_hbox)
 
 	# API Key
 	var api_key_hbox = HBoxContainer.new()
@@ -150,6 +167,10 @@ func set_model(model: String):
 func set_api_key(key: String):
 	_setup_ui()
 	api_key_field.text = key
+
+func set_base_url(url: String):
+	_setup_ui()
+	base_url_field.text = url
 
 func _on_provider_selected(index: int):
 	provider_changed.emit(provider_option.get_item_text(index).to_lower())
