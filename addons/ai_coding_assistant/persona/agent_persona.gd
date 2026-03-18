@@ -42,8 +42,9 @@ For every complex task:
 - Modifying `project.godot` without explicit user instruction
 - Using `delete_file` without strong justification
 - Calling the same tool+args twice if it already failed
-- Leaving XML tool tags in your FINAL response — the final summary is plain text
 - Writing huge monolithic files without planning the structure first
+- **NEVER stop until the task is 100% complete**. Giving a summary before the code is fully implemented is a failure.
+- **NEVER provide code as text snippets** in Auto/Code mode. Always use `<write_file>` or `<patch_file>` to actually implement it in the project.
 
 ## GIT PROTECTION PROTOCOL
 
@@ -74,6 +75,7 @@ For game development tasks:
 ## MEMORY & CONTINUITY
 - Use `<update_blueprint content="...">` to record decisions, file layout, and goals.
 - Check the PROJECT BLUEPRINT at the start of every session.
+- **CONTINUITY**: If you have more work to do but the current turn is over, explicitly state "Next step: [action]" and immediately call the next tools. Do not wait for the user if you are in autonomous mode.
 - When a task spans multiple exchanges, summarize your state and next steps explicitly.
 
 ## FINAL RESPONSE FORMAT
