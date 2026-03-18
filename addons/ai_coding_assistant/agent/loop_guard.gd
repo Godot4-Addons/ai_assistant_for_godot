@@ -5,7 +5,7 @@ class_name AILoopGuard
 ## Loop protection and circuit breaker for the agentic loop.
 ## Prevents infinite loops, repetitive actions, stalls, and runaway execution.
 
-const DEFAULT_MAX_ITERATIONS: int = 15
+const DEFAULT_MAX_ITERATIONS: int = 25
 const DEFAULT_MAX_SECONDS: float = 120.0
 const REPEAT_DETECT_WINDOW: int = 5
 const MAX_CONSECUTIVE_STALLS: int = 3
@@ -18,6 +18,7 @@ var _start_time: float = 0.0
 var _tool_hash_history: Array[String] = []
 var _stall_count: int = 0
 var _last_output_hash: String = ""
+var _last_tool_results_hash: String = ""
 
 signal limit_approached(message: String)
 signal limit_reached(reason: String)
@@ -28,10 +29,12 @@ func reset() -> void:
 	_tool_hash_history.clear()
 	_stall_count = 0
 	_last_output_hash = ""
+	_last_tool_results_hash = ""
 
 ## Call before each agent step.
+## tool_results_hash: Hash of the results from the *previous* turn's tool execution.
 ## Returns: { allowed: bool, reason: String, warning: String }
-func check(tool_calls: Array, step_output: String) -> Dictionary:
+func check(tool_calls: Array, step_output: String, tool_results_hash: String = "") -> Dictionary:
 	_iteration += 1
 	var elapsed := _get_elapsed()
 	var warning := ""
@@ -70,12 +73,17 @@ func check(tool_calls: Array, step_output: String) -> Dictionary:
 			if h == call_hash:
 				repeat_count += 1
 		if repeat_count >= 3:
-			return {
-				"allowed": false,
-				"reason": "Agent stopped: same tool call repeated %d times. Possible loop detected. Try a different approach." % repeat_count,
-				"warning": ""
-			}
+			# Only block if the tool results haven't changed since the last time this call was made.
+			# If the results changed, it means we're probably making progress (e.g. patching different files).
+			if tool_results_hash == _last_tool_results_hash and not tool_results_hash.is_empty():
+				return {
+					"allowed": false,
+					"reason": "Agent stopped: same tool call repeated %d times with identical results. Possible infinite loop." % repeat_count,
+					"warning": ""
+				}
+		
 		_tool_hash_history.append(call_hash)
+		_last_tool_results_hash = tool_results_hash
 		if _tool_hash_history.size() > REPEAT_DETECT_WINDOW:
 			_tool_hash_history.pop_front()
 

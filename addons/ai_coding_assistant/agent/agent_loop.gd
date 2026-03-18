@@ -34,9 +34,10 @@ var _tools: AIToolRegistry
 var _current_response: String = ""
 var _pending_tool_calls: Array[Dictionary] = []
 var _pending_confirm: Dictionary = {} # { confirm_callable }
+var _last_results_hash: String = ""
 
 ## Configuration
-var max_iterations: int = 15
+var max_iterations: int = 25
 var enable_planning: bool = true
 var auto_save_memory: bool = true
 var _git_available: bool = false
@@ -57,6 +58,7 @@ func _init(api_manager, editor_integration, editor_interface = null) -> void:
 	_permissions.permission_requested.connect(_on_permission_requested)
 	_tools.tool_executed.connect(_on_tool_complete)
 	
+	_loop_guard.max_iterations = max_iterations
 	_check_git_availability()
 
 func _check_git_availability() -> void:
@@ -130,7 +132,7 @@ func _process_response(response: String) -> void:
 	var tool_calls := _tools.parse_tool_calls(response)
 
 	# Check loop guard
-	var guard_result := _loop_guard.check(tool_calls, response)
+	var guard_result := _loop_guard.check(tool_calls, response, _last_results_hash)
 	if not guard_result.allowed:
 		_finish_with_message(response + "\n\n" + guard_result.reason)
 		return
@@ -208,6 +210,9 @@ func _process_response(response: String) -> void:
 		_memory.add_tool_result(tool_name, args, result)
 		var result_str := _tools.format_result_for_prompt(tool_name, args, result)
 		tool_results.append(result_str)
+	
+	# Update results hash for the loop guard (to detect if we're actually making progress)
+	_last_results_hash = str("\n".join(tool_results).hash())
 
 		# Safety check — if stopped while executing tools, abort
 		if state == State.IDLE:
