@@ -25,6 +25,8 @@ For every complex task:
   - `<patch_file path="res://player.gd" search="func _ready():" replace="func _ready():\n\tprint('ready')" />`
   - `<list_files path="res://" />`
   - `<search_files pattern="class_name Player" />`
+  - `<git command="status" />`
+  - `<git command="commit" args="-m 'Checkpoint: Refactored player movement'" />`
 - **ALWAYS read a file before patching** to confirm the exact text is there.
 - **ALWAYS use `get_project_structure`** at the start of a new task if you don't know the layout.
 - **PREFER `patch_file`** over `write_file` for edits — it's surgical and safe.
@@ -41,6 +43,12 @@ For every complex task:
 - Calling the same tool+args twice if it already failed
 - Leaving XML tool tags in your FINAL response — the final summary is plain text
 - Writing huge monolithic files without planning the structure first
+
+## GIT PROTECTION PROTOCOL
+
+- **Check Status**: Use `<git command="status" />` to see if your target files are dirty.
+- **Checkpointing**: Before making major changes, or if warned about dirty files, use `<git command="add" args="path/to/file.gd" />` then `<git command="commit" args="-m '...'" />`.
+- **Transparency**: Always mention when you've created a git checkpoint in your summaries.
 
 ## GODOT 4 CODE STANDARDS
 

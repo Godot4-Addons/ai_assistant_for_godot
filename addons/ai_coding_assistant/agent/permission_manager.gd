@@ -42,6 +42,7 @@ var _tool_permissions: Dictionary = {
 	"run_project": Permission.WARN_AND_PROCEED,
 	"stop_project": Permission.AUTO_ALLOW,
 	"delete_file": Permission.ASK_USER,
+	"git": Permission.WARN_AND_PROCEED,
 }
 
 ## Paths that always require user confirmation regardless of tool permission

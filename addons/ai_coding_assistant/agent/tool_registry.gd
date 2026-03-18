@@ -145,6 +145,15 @@ func _register_all_tools() -> void:
 		{"content": {"type": "String", "required": true, "desc": "Full updated blueprint content in Markdown"}},
 		_tool_update_blueprint)
 
+	# Git Tools
+	register_tool("git",
+		"Run git commands (status, diff, add, commit, checkout) to manage and protect project files.",
+		{
+			"command": {"type": "String", "required": true, "desc": "Git subcommand (status, diff, add, commit, checkout)"},
+			"args": {"type": "String", "required": false, "desc": "Arguments for the command (e.g. file path or commit message)"}
+		},
+		_tool_git)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Prompt Generation
 # ─────────────────────────────────────────────────────────────────────────────
@@ -368,6 +377,34 @@ func _tool_update_blueprint(args: Dictionary) -> Dictionary:
 	if content.is_empty(): return {"error": "Missing content"}
 	AIProjectBlueprint.update_blueprint(content)
 	return {"success": true}
+
+func _tool_git(args: Dictionary) -> Dictionary:
+	var command: String = args.get("command", "")
+	var extra_args: String = args.get("args", "")
+	if command.is_empty(): return {"error": "Missing command"}
+	
+	# Check for git presence
+	var version_out: Array[String] = []
+	if OS.execute("git", ["--version"], version_out, true) != 0:
+		return {"error": "Git is not installed or not in PATH. Fallback backup system is enabled."}
+	
+	var git_args = [command]
+	if not extra_args.is_empty():
+		# Simple split but respect quotes for commit messages
+		if command == "commit" and "-m" in extra_args:
+			git_args.append("-m")
+			var msg = extra_args.split("-m")[1].strip_edges().trim_prefix("\"").trim_suffix("\"")
+			git_args.append(msg)
+		else:
+			git_args.append_array(extra_args.split(" ", false))
+
+	var output: Array[String] = []
+	var exit_code: int = OS.execute("git", git_args, output, true, false)
+	
+	if exit_code != 0:
+		return {"error": "Git command failed", "output": "\n".join(output), "exit_code": exit_code}
+	
+	return {"data": "\n".join(output), "exit_code": exit_code}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
