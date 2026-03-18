@@ -237,6 +237,12 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 		api_base_url if not api_base_url.is_empty() else base_urls[api_provider], 
 		api_key, model_to_use, message, history, final_context
 	)
+	
+	if request_data.has("error"):
+		error_occurred.emit(request_data["error"])
+		if is_agent and agent_loop:
+			agent_loop.on_error_received(request_data["error"])
+		return
 
 	# Inject streaming flag
 	if request_data.has("body"):

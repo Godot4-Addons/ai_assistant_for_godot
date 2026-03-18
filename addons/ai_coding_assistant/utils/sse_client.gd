@@ -72,6 +72,11 @@ func _process_request():
 		host = hparts[0]
 		port = hparts[1].to_int()
 		
+	if host.is_empty():
+		call_deferred("_emit_error", "Invalid URL: No host found. Please check your AI Provider settings.")
+		_is_requesting = false
+		return
+		
 	var err = _http_client.connect_to_host(host, port, TLSOptions.client() if use_ssl else null)
 	if err != OK:
 		call_deferred("_emit_error", "Failed to connect to host: " + str(err))

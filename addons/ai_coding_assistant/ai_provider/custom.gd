@@ -16,12 +16,18 @@ static func build_request(base_url: String, api_key: String, model: String, mess
 	# Robust URL construction:
 	# 1. Strip whitespace
 	var url = base_url.strip_edges()
+	if url.is_empty():
+		return {"error": "Custom AI Base URL is empty. Please set it in Settings."}
 	
 	# 2. If it's already a full endpoint, use it directly
 	if not url.ends_with("chat/completions"):
 		if not url.ends_with("/"):
 			url += "/"
 		url += "chat/completions"
+	
+	# Ensure it has a protocol
+	if not url.begins_with("http"):
+		return {"error": "Invalid Custom AI Base URL. Must start with http:// or https://"}
 	
 	var body = {
 		"model": model,
