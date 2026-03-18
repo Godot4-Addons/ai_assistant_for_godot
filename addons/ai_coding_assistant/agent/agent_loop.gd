@@ -154,6 +154,9 @@ func _process_response(response: String) -> void:
 		_finish_with_message(response)
 		return
 
+	# Detect if any calls were "fuzzy" (not XML) to warn the AI
+	var was_fuzzy := not response.contains("<") or not response.contains(">")
+
 	# Execute tools
 	_set_state(State.EXECUTING)
 	
@@ -177,7 +180,7 @@ func _process_response(response: String) -> void:
 				agent_thinking.emit(msg)
 	
 	var tool_results: Array[String] = []
-
+	
 	for call in tool_calls:
 		var tool_name: String = call.get("tool", "")
 		var args: Dictionary = call.get("args", {})
@@ -189,13 +192,16 @@ func _process_response(response: String) -> void:
 			_pending_tool_calls = tool_calls
 			_pending_confirm = {"tool": tool_name, "args": args, "remaining_calls": tool_calls}
 			permission_needed.emit(tool_name, args, perm.message,
-				Callable(self , "_on_confirmation_result"))
+				Callable(self, "_on_confirmation_result"))
 			return
 
 		if not perm.allowed:
 			var err_result := {"error": perm.message}
 			_memory.add_tool_result(tool_name, args, err_result)
-			tool_results.append(_tools.format_result_for_prompt(tool_name, args, err_result))
+			var formatted := _tools.format_result_for_prompt(tool_name, args, err_result)
+			if was_fuzzy:
+				formatted = "⚠️ FORMATTING WARNING: Your last call used a non-XML format. The system recovered it using fuzzy parsing, but you MUST use valid XML <tool_name key=\"value\" /> going forward.\n" + formatted
+			tool_results.append(formatted)
 			continue
 
 		# Show progress
@@ -203,6 +209,7 @@ func _process_response(response: String) -> void:
 			tool_executed.emit(tool_name, args, {}, perm.message)
 
 		step_started.emit(_loop_guard.get_iteration(), "🔧 %s" % tool_name)
+		agent_status_changed.emit(state, "Running " + tool_name + "...")
 
 		# Execute with error wrapping
 		var result: Dictionary = {}
@@ -217,6 +224,11 @@ func _process_response(response: String) -> void:
 			
 		_memory.add_tool_result(tool_name, args, result)
 		var result_str := _tools.format_result_for_prompt(tool_name, args, result)
+		
+		# Add fuzzy warning if needed
+		if was_fuzzy:
+			result_str = "⚠️ FORMATTING WARNING: Your last call used a non-XML format. The system recovered it using fuzzy parsing, but you MUST use valid XML <tool_name key=\"value\" /> going forward.\n" + result_str
+			
 		tool_results.append(result_str)
 
 		# Safety check — if stopped while executing tools, abort

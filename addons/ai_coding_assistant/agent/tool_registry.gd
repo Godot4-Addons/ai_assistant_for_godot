@@ -192,28 +192,37 @@ func parse_tool_calls(response: String) -> Array[Dictionary]:
 	var regex := RegEx.new()
 	regex.compile(XML_TOOL_REGEX)
 	var matches := regex.search_all(response)
+	
 	for m in matches:
 		var tool_name := m.get_string(1)
-		if not _tools.has(tool_name):
-			continue
+		if not _tools.has(tool_name): continue
 		var attrs_str := m.get_string(2)
 		var body := m.get_string(3).strip_edges()
-		var attrs := _parse_attrs(attrs_str)
+		var attrs := _parse_attrs(tool_name, attrs_str)
 		# Content in body can override or supplement attrs
 		if not body.is_empty() and not attrs.has("content"):
 			attrs["content"] = body
 		calls.append({"tool": tool_name, "args": attrs})
+	
+	# Fallback: Bare text tool calls (e.g. "read_file path:res://...")
+	# Only if no XML tags were found at all to avoid duplicates
+	if calls.is_empty():
+		for t_name in _tools:
+			if response.to_lower().contains(t_name.to_lower()):
+				# Try to extract keys for this specific tool
+				var fuzzy_attrs = _fuzzy_parse_attrs(t_name, response)
+				if not fuzzy_attrs.is_empty():
+					calls.append({"tool": t_name, "args": fuzzy_attrs})
+					# Stop after first bare tool to prevent spam
+					break
+					
 	return calls
 
-func _parse_attrs(attrs_str: String) -> Dictionary:
+func _parse_attrs(tool_name: String, attrs_str: String) -> Dictionary:
 	var attrs: Dictionary = {}
 	var regex := RegEx.new()
-	# Lenient attribute matching: 
-	# Group 1: key
-	# Group 2: value in double quotes
-	# Group 3: value in single quotes
-	# Group 4: unquoted value (no spaces or >)
-	regex.compile("(\\w+)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))")
+	# Lenient attribute matching: key="val" or key='val' or key=val
+	regex.compile("(\\w+)\\s*[:=]\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))")
 	
 	var matches := regex.search_all(attrs_str)
 	for m in matches:
@@ -223,6 +232,28 @@ func _parse_attrs(attrs_str: String) -> Dictionary:
 		elif not m.get_string(3).is_empty(): val = m.get_string(3)
 		else: val = m.get_string(4)
 		attrs[key] = val
+	
+	# If empty, try fuzzy fallback for this specific tool's params
+	if attrs.is_empty() and not attrs_str.strip_edges().is_empty():
+		return _fuzzy_parse_attrs(tool_name, attrs_str)
+		
+	return attrs
+
+func _fuzzy_parse_attrs(tool_name: String, text: String) -> Dictionary:
+	var attrs: Dictionary = {}
+	var tool_def: Dictionary = _tools.get(tool_name, {})
+	var params: Dictionary = tool_def.get("params", {})
+	
+	for p_name in params:
+		# Search for "paramname[:= ]value"
+		var p_regex := RegEx.new()
+		# Match key followed by optional separator, then the value until next space or newline
+		# (?:[:= ]|\s+)? allows "path res://" and "path:res://" and "path=res://"
+		p_regex.compile(p_name + "\\s*[:= ]\\s*([^\\s\"'>]+)")
+		var m = p_regex.search(text)
+		if m:
+			attrs[p_name] = m.get_string(1)
+			
 	return attrs
 
 # ─────────────────────────────────────────────────────────────────────────────
