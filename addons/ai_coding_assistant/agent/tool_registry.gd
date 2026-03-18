@@ -7,7 +7,7 @@ class_name AIToolRegistry
 
 signal tool_executed(tool_name: String, args: Dictionary, result: Dictionary)
 
-const XML_TOOL_REGEX = "<(\\w+)(?:\\s+([^>]*?))?\\s*(?:>([\\s\\S]*?)<\\/\\1>|\\/>)"
+const XML_TOOL_REGEX = "<\\s*(\\w+)(?:\\s+([^>]*?))?\\s*(?:>([\\s\\S]*?)<\\/\\s*\\1\\s*>|\\/>)"
 
 var _tools: Dictionary = {}
 var _editor_integration # AIEditorIntegration
@@ -208,10 +208,21 @@ func parse_tool_calls(response: String) -> Array[Dictionary]:
 func _parse_attrs(attrs_str: String) -> Dictionary:
 	var attrs: Dictionary = {}
 	var regex := RegEx.new()
-	regex.compile("(\\w+)=\"([^\"]*)\"")
+	# Lenient attribute matching: 
+	# Group 1: key
+	# Group 2: value in double quotes
+	# Group 3: value in single quotes
+	# Group 4: unquoted value (no spaces or >)
+	regex.compile("(\\w+)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))")
+	
 	var matches := regex.search_all(attrs_str)
 	for m in matches:
-		attrs[m.get_string(1)] = m.get_string(2)
+		var key := m.get_string(1)
+		var val := ""
+		if not m.get_string(2).is_empty(): val = m.get_string(2)
+		elif not m.get_string(3).is_empty(): val = m.get_string(3)
+		else: val = m.get_string(4)
+		attrs[key] = val
 	return attrs
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -141,8 +141,16 @@ func _process_response(response: String) -> void:
 	if not guard_result.warning.is_empty():
 		_memory.add_agent_thought(guard_result.warning)
 
-	# No tool calls = agent is done
+	# No tool calls = agent is done (or failed to use XML)
 	if tool_calls.is_empty():
+		var hallucinated_tool := _detect_hallucinated_tool(response)
+		if not hallucinated_tool.is_empty():
+			var err_msg := "⚠️ SYSTEM ERROR: Invalid tool format detected. You mentioned '%s' but failed to use the mandatory XML tags. \n\nCRITICAL: You MUST use the format: <%s key=\"value\" />\nExample: <read_file path=\"res://main.gd\" />\n\nPlease retry with the correct format." % [hallucinated_tool, hallucinated_tool]
+			_memory.add_agent_thought(err_msg)
+			agent_thinking.emit(err_msg)
+			_send_to_ai(err_msg, false) # Request correction
+			return
+
 		_finish_with_message(response)
 		return
 
@@ -304,6 +312,24 @@ func _is_file_dirty(path: String) -> bool:
 	if res == 0 and not output.is_empty() and not output[0].strip_edges().is_empty():
 		return true
 	return false
+
+func _detect_hallucinated_tool(response: String) -> String:
+	if not _tools: return ""
+	var tool_names := _tools._tools.keys()
+	# Look for tool names followed by common non-XML markers or just mentioned as an action
+	for t_name in tool_names:
+		var patterns = [
+			t_name + "(", # Python style
+			t_name + " (",
+			t_name + "{", # JSON style
+			"use " + t_name,
+			"call " + t_name,
+			"run " + t_name
+		]
+		for p in patterns:
+			if response.to_lower().contains(p.to_lower()):
+				return t_name
+	return ""
 
 func _set_state(new_state: State) -> void:
 	state = new_state
