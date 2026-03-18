@@ -209,7 +209,7 @@ func _process_response(response: String) -> void:
 			tool_executed.emit(tool_name, args, {}, perm.message)
 
 		step_started.emit(_loop_guard.get_iteration(), "🔧 %s" % tool_name)
-		agent_status_changed.emit(state, "Running " + tool_name + "...")
+		status_changed.emit(state, "Running " + tool_name + "...")
 
 		# Execute with error wrapping
 		var result: Dictionary = {}

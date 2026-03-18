@@ -244,15 +244,28 @@ func _fuzzy_parse_attrs(tool_name: String, text: String) -> Dictionary:
 	var tool_def: Dictionary = _tools.get(tool_name, {})
 	var params: Dictionary = tool_def.get("params", {})
 	
+	# Clean up text for easier matching (normalize slashes/newlines)
+	var clean_text := text.replace("\r", "\n")
+	
 	for p_name in params:
-		# Search for "paramname[:= ]value"
+		# Search for "paramname[:= ]?value"
+		# (?:[:= ]|\s+)? allows "path res://" and "path:res://" and "path=res://" and "pathres://"
 		var p_regex := RegEx.new()
-		# Match key followed by optional separator, then the value until next space or newline
-		# (?:[:= ]|\s+)? allows "path res://" and "path:res://" and "path=res://"
-		p_regex.compile(p_name + "\\s*[:= ]\\s*([^\\s\"'>]+)")
-		var m = p_regex.search(text)
+		# Pattern: p_name + optional space/separator + value (no spaces or >)
+		# But if the value is res://, it should match that specifically
+		p_regex.compile(p_name + "\\s*[:= ]?\\s*(res://[^\\s\"'>]+|[^\\s\"'>]+)")
+		var m = p_regex.search(clean_text)
 		if m:
 			attrs[p_name] = m.get_string(1)
+	
+	# If no specific params found, but this is a tool with "content" (like write_file/patch_file)
+	if attrs.is_empty() and params.has("content"):
+		# Try to grab everything between the tool name and the end marker
+		var body_regex := RegEx.new()
+		body_regex.compile(tool_name + "(?:\\s+)?([\\s\\S]*?)(?:/" + tool_name + "|$)")
+		var m = body_regex.search(clean_text)
+		if m:
+			attrs["content"] = m.get_string(1).strip_edges()
 			
 	return attrs
 
