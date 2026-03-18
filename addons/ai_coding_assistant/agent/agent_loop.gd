@@ -324,7 +324,11 @@ func _detect_hallucinated_tool(response: String) -> String:
 			t_name + "{", # JSON style
 			"use " + t_name,
 			"call " + t_name,
-			"run " + t_name
+			"run " + t_name,
+			"tool_code", # Generic block
+			"tool =>", # Dictionary style
+			"=> '" + t_name + "'",
+			"=> \"" + t_name + "\""
 		]
 		for p in patterns:
 			if response.to_lower().contains(p.to_lower()):

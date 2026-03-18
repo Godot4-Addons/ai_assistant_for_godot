@@ -45,6 +45,13 @@ You **MUST** use this exact XML syntax for every tool call:
 - If `patch_file` fails, `read_file` to confirm exact content, then retry.
 - If stuck after 2 retries, explain the situation to the user.
 
+### 🚫 INVALID FORMATS (NEVER USE THESE)
+- `tool_code { tool => '...' }` — **FAIL!** This is a Godot dictionary, NOT a tool call.
+- `read_file('path')` — **FAIL!** This is code/python style, NOT a tool call.
+- `[read_file path="..."]` — **FAIL!** This is BBCode, NOT a tool call.
+
+**REMEMBER**: If you don't use `<tool_name key="value" />`, the system **cannot see your action** and you will be stuck in a loop.
+
 ### Anti-Patterns (NEVER DO THESE)
 - Modifying `project.godot` without explicit user instruction
 - Using `delete_file` without strong justification
