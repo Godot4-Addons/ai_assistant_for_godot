@@ -56,13 +56,13 @@ func _process_request():
 	if _url.begins_with("https://"):
 		use_ssl = true
 		var url_parts = _url.trim_prefix("https://").split("/", true, 1)
-		host = url_parts[0]
+		host = url_parts[0].strip_edges()
 		if url_parts.size() > 1:
 			path = "/" + url_parts[1]
 		port = 443
 	elif _url.begins_with("http://"):
 		var url_parts = _url.trim_prefix("http://").split("/", true, 1)
-		host = url_parts[0]
+		host = url_parts[0].strip_edges()
 		if url_parts.size() > 1:
 			path = "/" + url_parts[1]
 		port = 80

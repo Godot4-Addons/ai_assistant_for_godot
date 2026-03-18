@@ -13,6 +13,16 @@ static func get_default_model() -> String:
 	return "custom-model"
 
 static func build_request(base_url: String, api_key: String, model: String, message: String, history: Array, system_prompt: String) -> Dictionary:
+	# Robust URL construction:
+	# 1. Strip whitespace
+	var url = base_url.strip_edges()
+	
+	# 2. If it's already a full endpoint, use it directly
+	if not url.ends_with("chat/completions"):
+		if not url.ends_with("/"):
+			url += "/"
+		url += "chat/completions"
+	
 	var body = {
 		"model": model,
 		"messages": BaseProvider.build_chat_messages(message, history, system_prompt),
@@ -20,17 +30,13 @@ static func build_request(base_url: String, api_key: String, model: String, mess
 		"temperature": 0.7
 	}
 	
-	# Fallback if base_url is empty (it shouldn't be if custom is selected)
-	var url = base_url
-	if not url.ends_with("/"):
-		url += "/"
-	
 	return {
-		"url": url + "chat/completions",
+		"url": url,
 		"headers": [
-			"Authorization: Bearer " + api_key,
+			"Authorization: Bearer " + api_key.strip_edges(),
 			"Content-Type: application/json",
 			"HTTP-Referer: https://godot-ai-assistant",
+			"X-Title: Godot 4 AI Coding Assistant",
 			"User-Agent: Godot-AI-Assistant/1.0"
 		],
 		"method": HTTPClient.METHOD_POST,
