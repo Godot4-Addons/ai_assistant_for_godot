@@ -16,6 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="AI Coding Assistant Plugin Demo"
 config/description="Demo project for the AI Coding Assistant plugin"
+run/main_scene="uid://dvh713lli1hw8"
 config/features=PackedStringArray("4.6")
 config/icon="res://img/logo_static.svg"
 
