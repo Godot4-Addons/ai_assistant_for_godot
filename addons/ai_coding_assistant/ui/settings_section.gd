@@ -15,6 +15,7 @@ signal session_deleted(session_id: String)
 var provider_option: OptionButton
 var model_field: LineEdit
 var base_url_field: LineEdit
+var base_url_container: HBoxContainer
 var api_key_field: LineEdit
 var context_field: TextEdit
 var session_option: OptionButton
@@ -59,7 +60,7 @@ func _setup_ui():
 	settings_content.add_child(model_hbox)
 
 	# Base URL (for custom provider)
-	var url_hbox = HBoxContainer.new()
+	base_url_container = HBoxContainer.new()
 	var url_label = Label.new()
 	url_label.text = "Base URL:"
 	url_label.custom_minimum_size = Vector2(80, 0)
@@ -69,9 +70,10 @@ func _setup_ui():
 	base_url_field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	base_url_field.text_changed.connect(func(t): base_url_changed.emit(t))
 	
-	url_hbox.add_child(url_label)
-	url_hbox.add_child(base_url_field)
-	settings_content.add_child(url_hbox)
+	base_url_container.add_child(url_label)
+	base_url_container.add_child(base_url_field)
+	base_url_container.visible = false # Hidden by default
+	settings_content.add_child(base_url_container)
 
 	# API Key
 	var api_key_hbox = HBoxContainer.new()
@@ -173,7 +175,21 @@ func set_base_url(url: String):
 	base_url_field.text = url
 
 func _on_provider_selected(index: int):
-	provider_changed.emit(provider_option.get_item_text(index).to_lower())
+	var provider = provider_option.get_item_text(index).to_lower()
+	_update_url_visibility(provider)
+	provider_changed.emit(provider)
+
+func set_provider(provider: String):
+	_setup_ui()
+	for i in range(provider_option.get_item_count()):
+		if provider_option.get_item_text(i).to_lower() == provider.to_lower():
+			provider_option.selected = i
+			_update_url_visibility(provider)
+			break
+
+func _update_url_visibility(provider: String):
+	if base_url_container:
+		base_url_container.visible = (provider.to_lower().strip_edges() == "custom")
 
 func _on_model_changed(text: String):
 	model_changed.emit(text)

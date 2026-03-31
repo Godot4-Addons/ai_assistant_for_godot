@@ -371,5 +371,4 @@ func _load_settings() -> void:
 
 
 		var providers: Array = api_manager.get_provider_list()
-		var p_idx: int = providers.find(prov)
-		if p_idx >= 0: settings_ui.provider_option.selected = p_idx
+		settings_ui.set_provider(prov)
