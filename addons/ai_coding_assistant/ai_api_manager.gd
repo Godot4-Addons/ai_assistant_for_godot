@@ -244,8 +244,8 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 			agent_loop.on_error_received(request_data["error"])
 		return
 
-	# Inject streaming flag
-	if request_data.has("body"):
+	# Inject streaming flag (Except for Gemini which uses a different endpoint/format)
+	if request_data.has("body") and api_provider != "gemini":
 		var json := JSON.new()
 		if json.parse(request_data["body"]) == OK and typeof(json.data) == TYPE_DICTIONARY:
 			json.data["stream"] = true

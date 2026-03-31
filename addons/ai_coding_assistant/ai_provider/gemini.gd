@@ -38,7 +38,7 @@ static func build_request(base_url: String, api_key: String, model: String, mess
 		"contents": contents
 	}
 	return {
-		"url": base_url + model + ":generateContent?key=" + api_key,
+		"url": base_url + model + ":streamGenerateContent?key=" + api_key,
 		"headers": ["Content-Type: application/json"],
 		"method": HTTPClient.METHOD_POST,
 		"body": JSON.stringify(body)
@@ -50,3 +50,6 @@ static func parse_response(response_data: Variant) -> String:
 		if candidate is Dictionary and candidate.has("content") and candidate["content"].has("parts") and candidate["content"]["parts"].size() > 0:
 			return str(candidate["content"]["parts"][0].get("text", ""))
 	return ""
+
+static func parse_stream_chunk(response_data: Variant) -> String:
+	return parse_response(response_data)
