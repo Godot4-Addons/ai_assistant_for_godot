@@ -5,6 +5,20 @@ All notable changes to the AI Coding Assistant plugin will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0-rc1] - 2026-04-01
+
+### Added
+- Renamed assistant personas to **JUI**.
+- Built-in support for Gemini 2.x and 3.x models (defaulting to `gemini-2.5-flash`).
+- New JSON array streaming support in `SSEClient` for non-SSE providers like Gemini.
+
+### Fixed
+- Fixed Gemini HTTP 400 error caused by unsupported "stream" flag and incorrect endpoint.
+- Fixed UI bug where the "Stop" button remained active after response completion.
+
+### Changed
+- Improved Settings UI: "Base URL" field is now hidden for builtin providers (Gemini, GPT, etc.).
+
 ## [1.0.0] - 2025-05-20
 
 ### Added
