@@ -6,7 +6,6 @@ signal message_sent(message: String)
 signal stop_requested
 signal clear_requested
 signal mode_requested(mode: String)
-signal model_requested(model: String)
 signal apply_code_requested(code: String)
 signal undo_requested()
 
@@ -19,7 +18,6 @@ var chat_display: VBoxContainer
 var input_field: TextEdit
 var send_button: Button
 var mode_button: OptionButton
-var model_button: OptionButton
 var suggestion_popup: PanelContainer
 var editor_integration
 
@@ -131,12 +129,6 @@ func _setup_ui() -> void:
 		mode_requested.emit(mode_id)
 	)
 	cmd_hbox.add_child(mode_button)
-
-	model_button = OptionButton.new()
-	model_button.flat = true
-	model_button.add_theme_font_size_override("font_size", 11)
-	model_button.item_selected.connect(func(idx): model_requested.emit(model_button.get_item_text(idx)))
-	cmd_hbox.add_child(model_button)
 
 	cmd_hbox.add_spacer(false)
 
@@ -352,15 +344,10 @@ func append_to_input(text: String) -> void:
 	input_field.grab_focus()
 
 func set_models(models: Array) -> void:
-	model_button.clear()
-	for i in range(models.size()):
-		model_button.add_item(models[i], i)
+	pass
 
 func set_model_label(name: String) -> void:
-	for i in range(model_button.item_count):
-		if model_button.get_item_text(i) == name:
-			model_button.selected = i
-			return
+	pass
 
 func set_streaming_state(is_streaming: bool) -> void:
 	_is_streaming = is_streaming
