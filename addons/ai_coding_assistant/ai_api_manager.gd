@@ -104,7 +104,8 @@ func set_provider(provider: String) -> void:
 	if provider in provider_handlers:
 		api_provider = provider
 		api_base_url = provider_handlers[provider].get_base_url()
-		current_model = provider_handlers[provider].get_default_model()
+		if current_model.is_empty():
+			current_model = provider_handlers[provider].get_default_model()
 	else:
 		push_error("Unsupported provider: " + provider)
 
@@ -229,6 +230,13 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 	_current_full_response = ""
 	_last_user_message = message
 
+	if api_key.is_empty():
+		var err := "API key not set for " + api_provider + ". Set it in the settings panel."
+		error_occurred.emit(err)
+		if is_agent and agent_loop:
+			agent_loop.on_error_received(err)
+		return
+
 	var persona_manager = preload("res://addons/ai_coding_assistant/persona/persona_manager.gd")
 	var blueprint := ""
 	if current_mode in ["code", "auto"] and not is_agent:
@@ -260,6 +268,10 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 			json.data["stream"] = true
 			request_data["body"] = JSON.stringify(json.data)
 
+	var url: String = request_data.get("url", "")
+	var key_prefix: String = api_key.left(8)
+	print("[AI API] → %s | model=%s | key=%s..." % [url, model_to_use, key_prefix])
+
 	var SSEClientClass = preload("res://addons/ai_coding_assistant/utils/sse_client.gd")
 	_sse_client = SSEClientClass.new()
 	add_child(_sse_client)
@@ -268,7 +280,7 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 	_sse_client.error_occurred.connect(_on_error_received)
 
 	_sse_client.request(
-		request_data.get("url", ""),
+		url,
 		PackedStringArray(request_data.get("headers", [])),
 		request_data.get("method", HTTPClient.METHOD_POST),
 		request_data.get("body", "")
@@ -287,10 +299,10 @@ func _on_chunk_received(chunk: String) -> void:
 				agent_loop.on_chunk_received(txt)
 
 func _on_error_received(error_message: String) -> void:
+	print("[AI API] ✗ ERROR: %s" % error_message)
 	if _sse_client:
 		_sse_client.queue_free()
 		_sse_client = null
-	# Don't forward errors to an already-idle agent
 	if agent_loop and is_instance_valid(agent_loop) and agent_loop.state != AIAgentLoop.State.IDLE:
 		agent_loop.on_error_received(error_message)
 	else:
@@ -305,9 +317,11 @@ func _on_request_completed() -> void:
 			_sse_client.queue_free()
 		_sse_client = null
 
-	# If being cancelled or agent already went idle, skip agent callback
 	if _is_cancelling:
+		print("[AI API] ← cancelled")
 		return
+
+	print("[AI API] ← response length=%d chars" % full_res.length())
 
 	# If agent loop is active, hand response to it
 	if agent_loop and is_instance_valid(agent_loop) and agent_loop.state != AIAgentLoop.State.IDLE:
@@ -345,10 +359,6 @@ func save_history():
 	if file:
 		var data = {
 			"chat_history": chat_history,
-			"current_mode": current_mode,
-			"current_model": current_model,
-			"api_provider": api_provider,
-			"api_base_url": api_base_url
 		}
 		file.store_string(JSON.stringify(data))
 		file.close()
@@ -368,10 +378,6 @@ func load_history(session_id: String = ""):
 		if json.parse(file.get_as_text()) == OK:
 			var data = json.data
 			if data.has("chat_history"): chat_history = data.chat_history
-			if data.has("current_mode"): current_mode = data.current_mode
-			if data.has("current_model"): current_model = data.current_model
-			if data.has("api_provider"): api_provider = data.api_provider
-			if data.has("api_base_url"): api_base_url = data.api_base_url
 		file.close()
 
 func new_session():
