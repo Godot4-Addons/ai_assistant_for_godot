@@ -306,11 +306,22 @@ func _on_chunk_received(chunk: String) -> void:
 		else:
 			var parsed_ok := json.parse(chunk) == OK
 			var is_dict := typeof(json.data) == TYPE_DICTIONARY if parsed_ok else false
-			var keys := ""
 			if is_dict:
 				var d: Dictionary = json.data
-				keys = str(d.keys())
-			print("[AI API] chunk parse empty | valid_json=%s is_dict=%s keys=%s | first_200=%s" % [parsed_ok, is_dict, keys, chunk.left(200)])
+				var choices = d.get("choices", [])
+				var debug := "no_choices"
+				if choices.size() > 0:
+					var c = choices[0]
+					if c is Dictionary:
+						var delta = c.get("delta", {})
+						var has_delta = c.has("delta")
+						var finish = c.get("finish_reason", "none")
+						var delta_content = delta.get("content") if delta is Dictionary else "no_delta_dict"
+						var delta_keys = delta.keys() if delta is Dictionary else []
+						debug = "choices[0].has_delta=%s finish=%s delta_keys=%s delta_content_type=%s" % [has_delta, finish, delta_keys, typeof(delta_content)]
+				print("[AI API] chunk empty debug | %s | first_120=%s" % [debug, chunk.left(120)])
+			else:
+				print("[AI API] chunk parse failed: %s" % chunk.left(100))
 
 func _on_error_received(error_message: String) -> void:
 	print("[AI API] ✗ ERROR: %s" % error_message)
