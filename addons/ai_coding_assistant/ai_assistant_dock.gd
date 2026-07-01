@@ -65,19 +65,28 @@ func _ready() -> void:
 	chat_ui.set_model_label(api_manager.current_model)
 
 func _setup_ui() -> void:
+	var bg_panel := PanelContainer.new()
+	bg_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var bg_style := StyleBoxFlat.new()
+	bg_style.bg_color = AppTheme.COLOR_BG_DARK
+	bg_panel.add_theme_stylebox_override("panel", bg_style)
+	add_child(bg_panel)
+
 	var main_vbox := VBoxContainer.new()
 	main_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	main_vbox.add_theme_constant_override("separation", 10)
-	add_child(main_vbox)
+	bg_panel.add_child(main_vbox)
 
 	# Header
 	var header := PanelContainer.new()
 	var h_style := StyleBoxFlat.new()
 	h_style.bg_color = AppTheme.COLOR_BG_DARK
-	h_style.content_margin_left = 8
-	h_style.content_margin_right = 8
-	h_style.content_margin_top = 4
-	h_style.content_margin_bottom = 4
+	h_style.border_color = AppTheme.COLOR_BG_MUTED
+	h_style.border_width_bottom = 1
+	h_style.content_margin_left = 12
+	h_style.content_margin_right = 12
+	h_style.content_margin_top = 8
+	h_style.content_margin_bottom = 8
 	header.add_theme_stylebox_override("panel", h_style)
 	main_vbox.add_child(header)
 
@@ -85,9 +94,9 @@ func _setup_ui() -> void:
 	header.add_child(header_hbox)
 
 	var title := Label.new()
-	title.text = "Godot AI ASSISTANT"
+	title.text = "Chat"
 	title.add_theme_font_size_override("font_size", 12)
-	title.add_theme_color_override("font_color", AppTheme.COLOR_ACCENT_SOFT)
+	title.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_BOLD)
 	header_hbox.add_child(title)
 
 	var health_badge := Label.new()

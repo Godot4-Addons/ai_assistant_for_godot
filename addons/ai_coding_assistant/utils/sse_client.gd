@@ -142,7 +142,7 @@ func _process_request():
 			_is_requesting = false
 			return
 			
-		var is_gemini = _url.contains("generativelanguage.googleapis.com")
+	var is_gemini = _url.contains("generativelanguage.googleapis.com")
 	var data_buffer = ""
 	var idle_reads: int = 0
 

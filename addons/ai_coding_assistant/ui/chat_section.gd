@@ -109,34 +109,79 @@ func _setup_ui() -> void:
 	var input_container := PanelContainer.new()
 	var in_style := StyleBoxFlat.new()
 	in_style.bg_color = AppTheme.COLOR_BG_MED
+	in_style.border_color = AppTheme.COLOR_BG_MUTED
+	in_style.border_width_left = 1
+	in_style.border_width_right = 1
+	in_style.border_width_top = 1
+	in_style.border_width_bottom = 1
 	in_style.corner_radius_top_left = 12
 	in_style.corner_radius_top_right = 12
 	in_style.corner_radius_bottom_left = 12
 	in_style.corner_radius_bottom_right = 12
-	in_style.content_margin_left = 10
-	in_style.content_margin_right = 10
+	in_style.content_margin_left = 12
+	in_style.content_margin_right = 12
 	in_style.content_margin_top = 10
-	in_style.content_margin_bottom = 8
+	in_style.content_margin_bottom = 10
 	input_container.add_theme_stylebox_override("panel", in_style)
 	split_container.add_child(input_container)
 
 	var input_vbox := VBoxContainer.new()
 	input_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	input_vbox.add_theme_constant_override("separation", 6)
 	input_container.add_child(input_vbox)
+
+	# Context Header
+	var ctx_hbox := HBoxContainer.new()
+	
+	var files_label := Label.new()
+	files_label.text = "0 Files With Changes"
+	files_label.add_theme_font_size_override("font_size", 10)
+	files_label.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_DIM)
+	ctx_hbox.add_child(files_label)
+	
+	ctx_hbox.add_spacer(false)
+	
+	var review_label := Label.new()
+	review_label.text = "✓ Review Changes"
+	review_label.add_theme_font_size_override("font_size", 10)
+	review_label.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_DIM)
+	ctx_hbox.add_child(review_label)
+	
+	input_vbox.add_child(ctx_hbox)
 
 	input_field = TextEdit.new()
 	input_field.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	input_field.placeholder_text = "Ask anything... (Shift+Enter = new line)"
-	input_field.custom_minimum_size = Vector2(0, 100)
+	input_field.placeholder_text = "Ask anything, @ to mention, / for workflows"
+	input_field.custom_minimum_size = Vector2(0, 80)
 	input_field.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	input_field.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
 	input_field.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	input_field.add_theme_color_override("font_placeholder_color", AppTheme.COLOR_TEXT_DIM)
 	input_vbox.add_child(input_field)
 	# ── Command bar ──
 	var cmd_hbox := HBoxContainer.new()
 	cmd_hbox.add_theme_constant_override("separation", 6)
 	input_vbox.add_child(cmd_hbox)
 
+	var plus_btn := Button.new()
+	plus_btn.text = "＋"
+	plus_btn.flat = true
+	plus_btn.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_DIM)
+	cmd_hbox.add_child(plus_btn)
+
+	mode_button = OptionButton.new()
+	mode_button.flat = true
+	mode_button.add_theme_font_size_override("font_size", 11)
+	mode_button.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_DIM)
+	_update_mode_list()
+	mode_button.item_selected.connect(func(idx):
+		var mode_id = mode_button.get_item_metadata(idx)
+		mode_requested.emit(mode_id)
+	)
+	cmd_hbox.add_child(mode_button)
+
+	cmd_hbox.add_spacer(false)
+	
 	var clear_btn := Button.new()
 	clear_btn.text = "🗑️"
 	clear_btn.flat = true
@@ -147,28 +192,17 @@ func _setup_ui() -> void:
 	)
 	cmd_hbox.add_child(clear_btn)
 
-	mode_button = OptionButton.new()
-	mode_button.flat = true
-	mode_button.add_theme_font_size_override("font_size", 11)
-	_update_mode_list()
-	mode_button.item_selected.connect(func(idx):
-		var mode_id = mode_button.get_item_metadata(idx)
-		mode_requested.emit(mode_id)
-	)
-	cmd_hbox.add_child(mode_button)
-
-	cmd_hbox.add_spacer(false)
-
 	send_button = Button.new()
-	send_button.text = "→"
-	send_button.custom_minimum_size = Vector2(32, 32)
+	send_button.text = "■" if _is_streaming else "↑"
+	send_button.custom_minimum_size = Vector2(24, 24)
 	var send_style := StyleBoxFlat.new()
-	send_style.bg_color = AppTheme.COLOR_ACCENT
-	send_style.corner_radius_top_left = 16
-	send_style.corner_radius_top_right = 16
-	send_style.corner_radius_bottom_left = 16
-	send_style.corner_radius_bottom_right = 16
+	send_style.bg_color = AppTheme.COLOR_ERROR if _is_streaming else AppTheme.COLOR_ACCENT
+	send_style.corner_radius_top_left = 12
+	send_style.corner_radius_top_right = 12
+	send_style.corner_radius_bottom_left = 12
+	send_style.corner_radius_bottom_right = 12
 	send_button.add_theme_stylebox_override("normal", send_style)
+	send_button.add_theme_stylebox_override("hover", send_style)
 	send_button.pressed.connect(func(): _on_send_pressed(input_field.text))
 	cmd_hbox.add_child(send_button)
 

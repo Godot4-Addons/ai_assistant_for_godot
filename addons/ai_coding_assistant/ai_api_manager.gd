@@ -304,7 +304,13 @@ func _on_chunk_received(chunk: String) -> void:
 			if agent_loop and agent_loop.state != AIAgentLoop.State.IDLE:
 				agent_loop.on_chunk_received(txt)
 		else:
-			print("[AI API] chunk parse returned empty for: %s" % chunk.left(100))
+			var parsed_ok := json.parse(chunk) == OK
+			var is_dict := typeof(json.data) == TYPE_DICTIONARY if parsed_ok else false
+			var keys := ""
+			if is_dict:
+				var d: Dictionary = json.data
+				keys = str(d.keys())
+			print("[AI API] chunk parse empty | valid_json=%s is_dict=%s keys=%s | first_200=%s" % [parsed_ok, is_dict, keys, chunk.left(200)])
 
 func _on_error_received(error_message: String) -> void:
 	print("[AI API] ✗ ERROR: %s" % error_message)

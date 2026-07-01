@@ -2,18 +2,18 @@
 extends RefCounted
 class_name AIUITheme
 
-# Colors - Modern Slate & Azure palette
-const COLOR_BG_DARK = Color("#111827") # Slate 900
-const COLOR_BG_MED = Color("#1f2937") # Slate 800
-const COLOR_ACCENT = Color("#3b82f6") # Blue 500
-const COLOR_ACCENT_SOFT = Color("#60a5fa") # Blue 400
-const COLOR_SUCCESS = Color("#10b981") # Emerald 500
-const COLOR_ERROR = Color("#ef4444") # Red 500
-const COLOR_TEXT_DIM = Color("#9ca3af") # Slate 400
-const COLOR_TEXT_BOLD = Color("#f3f4f6") # Slate 100
-const COLOR_BG_MUTED = Color("#334155") # Slate 700
-const COLOR_CODE_BG = Color("#0f172a") # Slate 950 (Darker for code)
-const COLOR_QUOTE_BAR = Color("#475569") # Slate 600
+# Colors - Modern IDE palette (Cursor-like)
+const COLOR_BG_DARK = Color("#09090b") # Very dark grey/black
+const COLOR_BG_MED = Color("#18181a") # Input box / subtle background
+const COLOR_BG_MUTED = Color("#27272a") # Borders / slightly lighter
+const COLOR_ACCENT = Color("#3b82f6") # Blue accent
+const COLOR_ACCENT_SOFT = Color("#60a5fa") 
+const COLOR_SUCCESS = Color("#10b981") 
+const COLOR_ERROR = Color("#ef4444") 
+const COLOR_TEXT_DIM = Color("#a1a1aa") # Dim text
+const COLOR_TEXT_BOLD = Color("#f4f4f5") # Bright text
+const COLOR_CODE_BG = Color("#000000") # Pure black for code blocks
+const COLOR_QUOTE_BAR = Color("#3f3f46") 
 
 # Syntax Highlighting
 const COLOR_SYNTAX_KEYWORD = Color("#3b82f6") # Blue 500
@@ -36,6 +36,11 @@ static func get_icon(name: String, control: Control) -> Texture2D:
 static func apply_card_style(panel: PanelContainer):
 	var style = StyleBoxFlat.new()
 	style.bg_color = COLOR_BG_MED
+	style.border_color = COLOR_BG_MUTED
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.border_width_top = 1
+	style.border_width_bottom = 1
 	style.corner_radius_top_left = RADIUS_L
 	style.corner_radius_top_right = RADIUS_L
 	style.corner_radius_bottom_left = RADIUS_L

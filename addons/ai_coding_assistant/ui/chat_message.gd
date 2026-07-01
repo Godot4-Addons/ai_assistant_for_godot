@@ -21,8 +21,21 @@ func _init(sender: String, content: String, color: Color):
 	_setup_ui(sender, content, color)
 
 func _setup_ui(sender: String, content: String, color: Color):
-	AppTheme.apply_card_style(self )
+	var style = StyleBoxFlat.new()
+	if sender == "User":
+		style.bg_color = AppTheme.COLOR_BG_MED
+		style.corner_radius_top_left = 12
+		style.corner_radius_top_right = 12
+		style.corner_radius_bottom_left = 12
+		style.corner_radius_bottom_right = 12
+	else:
+		style.bg_color = Color(0, 0, 0, 0) # Transparent for assistant
 	
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	self.add_theme_stylebox_override("panel", style)
 	var vbox = VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 8)
 	add_child(vbox)
