@@ -14,6 +14,7 @@ const ToolRegistry = preload("res://addons/ai_coding_assistant/agent/tool_regist
 const AgentPersona = preload("res://addons/ai_coding_assistant/persona/agent_persona.gd")
 const DamageRepair = preload("res://addons/ai_coding_assistant/repair/damage_repair.gd")
 const ContextManager = preload("res://addons/ai_coding_assistant/context/context_manager.gd")
+const SkillManager = preload("res://addons/ai_coding_assistant/skills/skill_manager.gd")
 
 enum State {IDLE, PLANNING, EXECUTING, WAITING_RESPONSE, OBSERVING, COMPLETED, ERROR}
 
@@ -31,6 +32,7 @@ var _api_manager ## AIApiManager reference
 var _loop_engine: AILoopEngine
 var _damage_repair: AIDamageRepair
 var _ctx_manager: AIContextManager
+var _skill_manager: AISkillManager
 var _permissions: AIPermissionManager
 var _memory: AIAgentMemory
 var _ctx: AIAgentContext
@@ -60,12 +62,14 @@ func _init(api_manager, editor_integration, editor_interface = null, mode: Strin
 	_loop_engine = LoopEngine.new()
 	_damage_repair = DamageRepair.new()
 	_ctx_manager = ContextManager.new()
+	_skill_manager = SkillManager.new()
 	_permissions = PermManager.new()
 	_memory = AgentMemory.new()
 	_memory.populate_knowledge_from_blueprint()
 	_ctx = AgentContext.new(editor_interface)
 	_tools = ToolRegistry.new(editor_integration, _ctx)
 	_tools.set_memory(_memory)
+	_tools.set_skill_manager(_skill_manager)
 
 	# In assistant mode, be more lenient (no hard loop limit pressure, no aggressive planning)
 	if current_mode == "assistant":

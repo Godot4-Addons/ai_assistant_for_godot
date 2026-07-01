@@ -13,9 +13,13 @@ var _tools: Dictionary = {}
 var _editor_integration # AIEditorIntegration
 var _context: AIAgentContext
 var _memory: AIAgentMemory = null
+var _skill_manager: AISkillManager = null
 
 func set_memory(memory: AIAgentMemory) -> void:
 	_memory = memory
+
+func set_skill_manager(sm: AISkillManager) -> void:
+	_skill_manager = sm
 
 func _init(editor_integration, agent_context: AIAgentContext) -> void:
 	_editor_integration = editor_integration
@@ -183,6 +187,75 @@ func _register_all_tools() -> void:
 			"args": {"type": "String", "required": false, "desc": "Arguments for the command (e.g. file path or commit message)"}
 		},
 		_tool_git)
+
+	# Skill Tools (Phase 4)
+	register_tool("use_skill",
+		"Instantiate a built-in or saved skill pattern. Returns ready-to-use GDScript code.",
+		{
+			"name": {"type": "String", "required": true, "desc": "Skill name (e.g. state_machine, player_2d)"},
+			"params": {"type": "String", "required": false, "desc": "Parameters as JSON string"},
+			"write_to": {"type": "String", "required": false, "desc": "If set, write code directly to this path"}
+		},
+		_tool_use_skill)
+
+	register_tool("list_skills",
+		"List all available built-in and user-saved skills.",
+		{},
+		_tool_list_skills)
+
+	register_tool("save_skill",
+		"Save a file as a reusable skill for future use.",
+		{
+			"name": {"type": "String", "required": true, "desc": "Name for the skill"},
+			"path": {"type": "String", "required": true, "desc": "Source file to save as skill"},
+			"description": {"type": "String", "required": false, "desc": "What this skill does"}
+		},
+		_tool_save_skill)
+
+	# Godot-Specific Tools (Phase 4)
+	register_tool("validate_script",
+		"Run GDScript syntax validation on a script file. Reports unbalanced brackets, indentation issues, and Godot 3-4 migration warnings.",
+		{"path": {"type": "String", "required": true, "desc": "Path to .gd file to validate"}},
+		_tool_validate_script)
+
+	register_tool("get_scene_nodes",
+		"Get all nodes in a scene as a structured list with types and script attachments.",
+		{"path": {"type": "String", "required": true, "desc": "Path to .tscn scene file"}},
+		_tool_get_scene_nodes)
+
+	register_tool("list_signals",
+		"List all signals defined and connected in a script.",
+		{"path": {"type": "String", "required": true, "desc": "Path to .gd script file"}},
+		_tool_list_signals)
+
+	register_tool("find_undefined_references",
+		"Find broken preloads, invalid node paths, and missing class_name references in a file.",
+		{"path": {"type": "String", "required": true, "desc": "Path to file to scan"}},
+		_tool_find_undefined_references)
+
+	register_tool("rename_class",
+		"Rename a class_name across the entire project, updating all references.",
+		{
+			"old_name": {"type": "String", "required": true, "desc": "Current class_name"},
+			"new_name": {"type": "String", "required": true, "desc": "New class_name"}
+		},
+		_tool_rename_class)
+
+	register_tool("move_file",
+		"Move a file to a new path and update all internal references (preloads, extends, load()).",
+		{
+			"source": {"type": "String", "required": true, "desc": "Current file path"},
+			"dest": {"type": "String", "required": true, "desc": "New file path"}
+		},
+		_tool_move_file)
+
+	register_tool("create_resource",
+		"Create a .tres resource file with the given content.",
+		{
+			"path": {"type": "String", "required": true, "desc": "Path for the .tres file"},
+			"content": {"type": "String", "required": true, "desc": "Resource content in Godot .tres text format"}
+		},
+		_tool_create_resource)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Prompt Generation
@@ -532,6 +605,291 @@ func _tool_list_memories(args: Dictionary) -> Dictionary:
 	if keys.is_empty():
 		return {"data": "No stored memories for this project."}
 	return {"data": "Stored facts: " + ", ".join(keys)}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Skill Tool Handlers (Phase 4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _tool_use_skill(args: Dictionary) -> Dictionary:
+	if not _skill_manager:
+		return {"error": "Skill system not available"}
+	var name: String = args.get("name", "")
+	if name.is_empty():
+		return {"error": "Missing skill name"}
+	var params_str: String = args.get("params", "{}")
+	var params: Dictionary = {}
+	var json := JSON.new()
+	if json.parse(params_str) == OK and json.data is Dictionary:
+		params = json.data
+	var result := _skill_manager.execute_skill(name, params)
+	if result.has("error"):
+		return result
+	var write_to: String = args.get("write_to", "")
+	if not write_to.is_empty() and result.has("code"):
+		if _editor_integration:
+			_editor_integration.write_file(write_to, result.code)
+			if _context:
+				_context.clear_cache()
+			return {"success": true, "path": write_to, "skill": name, "description": result.get("description", "")}
+	return result
+
+func _tool_list_skills(args: Dictionary) -> Dictionary:
+	if not _skill_manager:
+		return {"error": "Skill system not available"}
+	return {"data": _skill_manager.get_skill_list_for_prompt()}
+
+func _tool_save_skill(args: Dictionary) -> Dictionary:
+	if not _skill_manager:
+		return {"error": "Skill system not available"}
+	var name: String = args.get("name", "")
+	var path: String = args.get("path", "")
+	var description: String = args.get("description", "")
+	if name.is_empty() or path.is_empty():
+		return {"error": "Missing name or path"}
+	if not FileAccess.file_exists(path):
+		return {"error": "File not found: " + path}
+	if _skill_manager.save_skill_from_file(name, path, description):
+		return {"success": true, "name": name}
+	return {"error": "Failed to save skill"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Godot-Specific Tool Handlers (Phase 4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _tool_validate_script(args: Dictionary) -> Dictionary:
+	var path: String = args.get("path", "")
+	if path.is_empty(): return {"error": "Missing path"}
+	if not path.ends_with(".gd"): return {"error": "Not a GDScript file: " + path}
+	if not FileAccess.file_exists(path): return {"error": "File not found: " + path}
+
+	var content: String = _editor_integration.read_file(path) if _editor_integration else ""
+	if content.is_empty(): return {"error": "Cannot read file: " + path}
+
+	var SyntaxChecker = preload("res://addons/ai_coding_assistant/repair/syntax_checker.gd")
+	var checker := SyntaxChecker.new()
+	var issues: Array = checker.validate(content)
+
+	if issues.is_empty():
+		return {"data": "No issues found in " + path}
+
+	var summary: String = checker.get_error_summary(content)
+	var error_count: int = 0
+	var warning_count: int = 0
+	for issue in issues:
+		if issue.severity == SyntaxChecker.Severity.ERROR:
+			error_count += 1
+		elif issue.severity == SyntaxChecker.Severity.WARNING:
+			warning_count += 1
+
+	return {"data": summary, "error_count": error_count, "warning_count": warning_count}
+
+func _tool_get_scene_nodes(args: Dictionary) -> Dictionary:
+	var path: String = args.get("path", "")
+	if path.is_empty(): return {"error": "Missing path"}
+	if not FileAccess.file_exists(path): return {"error": "Scene not found: " + path}
+
+	var content: String = _editor_integration.read_file(path) if _editor_integration else ""
+	if content.is_empty():
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file:
+			content = file.get_as_text()
+	if content.is_empty(): return {"error": "Cannot read scene: " + path}
+
+	var regex := RegEx.new()
+	regex.compile("\\[node name=\"([^\"]+)\" type=\"([^\"]+)\"(?: parent=\"([^\"]+)\")?")
+	var matches := regex.search_all(content)
+
+	var nodes: Array[String] = []
+	var script_regex := RegEx.new()
+	script_regex.compile("script = ExtResource\\( \"([^\"]+)\"")
+	var script_map: Dictionary = {}
+	var ext_res_regex := RegEx.new()
+	ext_res_regex.compile("\\[ext_resource path=\"([^\"]+)\" type=\"Script\" id=\"([^\"]+)\"")
+	var ext_res := ext_res_regex.search_all(content)
+	for er in ext_res:
+		script_map[er.get_string(2)] = er.get_string(1)
+
+	for m in matches:
+		var node_name: String = m.get_string(1)
+		var node_type: String = m.get_string(2)
+		var parent: String = m.get_string(3)
+		var node_desc := "%s (%s)" % [node_name, node_type]
+		if not parent.is_empty():
+			node_desc += " parent=%s" % parent
+		var script_match := script_regex.search(m.get_string(0))
+		if script_match:
+			var script_id: String = script_match.get_string(1)
+			if script_map.has(script_id):
+				node_desc += " [script: %s]" % script_map[script_id].get_file()
+		nodes.append(node_desc)
+
+	return {"data": nodes, "count": nodes.size()}
+
+func _tool_list_signals(args: Dictionary) -> Dictionary:
+	var path: String = args.get("path", "")
+	if path.is_empty(): return {"error": "Missing path"}
+	if not FileAccess.file_exists(path): return {"error": "File not found: " + path}
+	if not path.ends_with(".gd"):
+		return {"error": "Only .gd scripts are supported"}
+
+	var content: String = _editor_integration.read_file(path) if _editor_integration else ""
+	if content.is_empty():
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file:
+			content = file.get_as_text()
+	if content.is_empty(): return {"error": "Cannot read file: " + path}
+
+	var defined_signals: Array[String] = []
+	var connected_signals: Array[String] = []
+	var lines := content.split("\n")
+
+	var sig_regex := RegEx.new()
+	sig_regex.compile("^signal\\s+(\\w+)")
+	var conn_regex := RegEx.new()
+	conn_regex.compile("\\.connect\\(\\s*\"(\\w+)\"")
+	var conn_regex2 := RegEx.new()
+	conn_regex2.compile("\\.connect\\(\\s*(\\w+)")
+
+	for line in lines:
+		var stripped := line.strip_edges()
+		var m := sig_regex.search(stripped)
+		if m:
+			defined_signals.append(m.get_string(1))
+		m = conn_regex.search(stripped)
+		if m:
+			connected_signals.append(m.get_string(1))
+		else:
+			m = conn_regex2.search(stripped)
+			if m:
+				connected_signals.append(m.get_string(1))
+
+	var result: Array[String] = []
+	if defined_signals.is_empty():
+		result.append("No signals defined.")
+	else:
+		result.append("Signals defined: %s" % ", ".join(defined_signals))
+	if connected_signals.is_empty():
+		result.append("No signal connections found.")
+	else:
+		result.append("Signal connections: %s" % ", ".join(connected_signals))
+
+	return {"data": "\n".join(result)}
+
+func _tool_find_undefined_references(args: Dictionary) -> Dictionary:
+	var path: String = args.get("path", "")
+	if path.is_empty(): return {"error": "Missing path"}
+	if not FileAccess.file_exists(path): return {"error": "File not found: " + path}
+
+	var content: String = _editor_integration.read_file(path) if _editor_integration else ""
+	if content.is_empty():
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file:
+			content = file.get_as_text()
+	if content.is_empty(): return {"error": "Cannot read file: " + path}
+
+	var issues: Array[String] = []
+	var lines := content.split("\n")
+
+	# Check preload paths
+	var preload_regex := RegEx.new()
+	preload_regex.compile("preload\\(\"(res://[^\"]+)\"\\)")
+	for i in range(lines.size()):
+		var m := preload_regex.search(lines[i])
+		if m:
+			var ref_path: String = m.get_string(1)
+			if not FileAccess.file_exists(ref_path):
+				issues.append("Line %d: Broken preload: %s" % [i + 1, ref_path])
+
+	# Check load paths
+	var load_regex := RegEx.new()
+	load_regex.compile("load\\(\"(res://[^\"]+)\"\\)")
+	for i in range(lines.size()):
+		var m := load_regex.search(lines[i])
+		if m:
+			var ref_path: String = m.get_string(1)
+			if not FileAccess.file_exists(ref_path):
+				issues.append("Line %d: Broken load: %s" % [i + 1, ref_path])
+
+	if issues.is_empty():
+		return {"data": "No undefined references found in " + path}
+
+	return {"data": "\n".join(issues), "count": issues.size()}
+
+func _tool_rename_class(args: Dictionary) -> Dictionary:
+	var old_name: String = args.get("old_name", "")
+	var new_name: String = args.get("new_name", "")
+	if old_name.is_empty() or new_name.is_empty():
+		return {"error": "Missing old_name or new_name"}
+
+	var files_to_scan: Array = []
+	_find_files_recursive("res://", ["gd", "tscn"], files_to_scan)
+
+	var modified: int = 0
+	for file_path in files_to_scan:
+		var content: String = _editor_integration.read_file(file_path) if _editor_integration else ""
+		if content.is_empty():
+			var file := FileAccess.open(file_path, FileAccess.READ)
+			if file:
+				content = file.get_as_text()
+		if content.is_empty():
+			continue
+
+		if content.contains(old_name):
+			var new_content := content.replace(old_name, new_name)
+			if _editor_integration:
+				_editor_integration.write_file(file_path, new_content)
+			else:
+				var file := FileAccess.open(file_path, FileAccess.WRITE)
+				if file:
+					file.store_string(new_content)
+			modified += 1
+
+	if _context:
+		_context.clear_cache()
+
+	return {"success": true, "files_modified": modified, "message": "Renamed '%s' to '%s' in %d files" % [old_name, new_name, modified]}
+
+func _tool_move_file(args: Dictionary) -> Dictionary:
+	var source: String = args.get("source", "")
+	var dest: String = args.get("dest", "")
+	if source.is_empty() or dest.is_empty():
+		return {"error": "Missing source or dest"}
+	if not FileAccess.file_exists(source):
+		return {"error": "Source file not found: " + source}
+	if FileAccess.file_exists(dest):
+		return {"error": "Destination already exists: " + dest}
+
+	var dest_dir := dest.get_base_dir()
+	if not DirAccess.dir_exists_absolute(dest_dir):
+		DirAccess.make_dir_recursive_absolute(dest_dir)
+
+	var err := DirAccess.rename_absolute(source, dest)
+	if err != OK:
+		return {"error": "Failed to move file: " + str(err)}
+
+	if _context:
+		_context.clear_cache()
+
+	return {"success": true, "source": source, "dest": dest}
+
+func _tool_create_resource(args: Dictionary) -> Dictionary:
+	var path: String = args.get("path", "")
+	var content: String = args.get("content", "")
+	if path.is_empty() or content.is_empty():
+		return {"error": "Missing path or content"}
+	if not path.ends_with(".tres"):
+		return {"error": "Path must end with .tres"}
+
+	var dir := path.get_base_dir()
+	if not DirAccess.dir_exists_absolute(dir):
+		DirAccess.make_dir_recursive_absolute(dir)
+
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if not file:
+		return {"error": "Cannot write file: " + path}
+
+	file.store_string(content)
+	return {"success": true, "path": path}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
