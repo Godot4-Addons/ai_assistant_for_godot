@@ -55,6 +55,7 @@ func _ready() -> void:
 	api_manager.agent_tool_executed.connect(_on_agent_tool_executed)
 	api_manager.agent_thinking.connect(_on_agent_thinking)
 	api_manager.agent_permission_needed.connect(_on_permission_needed)
+	api_manager.agent_context_status.connect(_on_context_status)
 
 	_setup_ui()
 	_load_settings()
@@ -85,6 +86,22 @@ func _setup_ui() -> void:
 	title.add_theme_font_size_override("font_size", 12)
 	title.add_theme_color_override("font_color", AppTheme.COLOR_ACCENT_SOFT)
 	header_hbox.add_child(title)
+
+	var health_badge := Label.new()
+	health_badge.name = "HealthBadge"
+	health_badge.text = ""
+	health_badge.tooltip_text = "Project health"
+	health_badge.add_theme_font_size_override("font_size", 11)
+	health_badge.add_theme_color_override("font_color", Color(0.5, 0.9, 0.5))
+	header_hbox.add_child(health_badge)
+
+	var token_label := Label.new()
+	token_label.name = "TokenLabel"
+	token_label.text = ""
+	token_label.tooltip_text = "Context usage"
+	token_label.add_theme_font_size_override("font_size", 10)
+	token_label.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_DIM)
+	header_hbox.add_child(token_label)
 
 	header_hbox.add_spacer(false)
 
@@ -272,8 +289,37 @@ func _on_agent_tool_executed(tool_name: String, args: Dictionary, result: Dictio
 	if not message.is_empty():
 		chat_ui.add_tool_card(tool_name, message, result.has("error"))
 
+func _on_context_status(tier: int, pct: float, tier_label: String) -> void:
+	var token_label: Label = find_child("TokenLabel", true, false)
+	if token_label:
+		var pct_str: String = "%.0f" % pct
+		var color := Color(0.5, 0.9, 0.5) if pct < 70 else (Color(0.9, 0.9, 0.3) if pct < 85 else Color(0.9, 0.3, 0.3))
+		token_label.text = "T: %s%%" % pct_str
+		token_label.add_theme_color_override("font_color", color)
+		token_label.tooltip_text = "Context: %s tier" % tier_label
+
+func _on_health_check_result(result: Dictionary) -> void:
+	var badge: Label = find_child("HealthBadge", true, false)
+	if not badge:
+		return
+	var issues: Array = result.get("issues", [])
+	var warnings: Array = result.get("warnings", [])
+	if issues.is_empty() and warnings.is_empty():
+		badge.text = "✅"
+		badge.tooltip_text = "Project healthy"
+		badge.add_theme_color_override("font_color", Color(0.5, 0.9, 0.5))
+	else:
+		badge.text = "⚠️"
+		var tooltip: String = ""
+		if not issues.is_empty():
+			tooltip += "%d issues" % issues.size()
+		if not warnings.is_empty():
+			if not tooltip.is_empty(): tooltip += ", "
+			tooltip += "%d warnings" % warnings.size()
+		badge.tooltip_text = tooltip
+		badge.add_theme_color_override("font_color", Color(0.9, 0.7, 0.2))
+
 func _on_permission_needed(tool_name: String, args: Dictionary, description: String, callback: Callable) -> void:
-	# Show confirmation in chat
 	chat_ui.show_confirmation(description, callback)
 
 # ─────────────────────────────────────────────────────────────────────────────

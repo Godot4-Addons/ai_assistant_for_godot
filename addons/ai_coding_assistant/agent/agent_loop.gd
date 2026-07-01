@@ -26,6 +26,8 @@ signal status_changed(state: State, message: String)
 signal permission_needed(tool_name: String, args: Dictionary, description: String, confirm_callable: Callable)
 signal agent_finished(final_response: String)
 signal agent_error(error_message: String)
+signal context_status_updated(tier: int, pct: float, tier_label: String)
+signal health_check_result(result: Dictionary)
 
 var state: State = State.IDLE
 var _task: String = ""
@@ -348,8 +350,10 @@ func _send_to_ai(message: String, include_system_context: bool = true) -> void:
 			context = _ctx_manager.build(sections)
 
 	var tier := _ctx_manager.get_tier()
+	var pct := _ctx_manager.get_window().get_usage_pct()
 	if tier >= 2:
 		agent_thinking.emit("📊 Context compression active (tier %d: %s)" % [tier, _ctx_manager.get_tier_label()])
+	context_status_updated.emit(tier, pct, _ctx_manager.get_tier_label())
 
 	_api_manager.send_agent_request(message, context, _memory.get_api_history())
 
@@ -375,6 +379,10 @@ func _finish_with_message(response: String) -> void:
 		_auto_commit()
 
 	agent_finished.emit(response)
+	if _workspace_manager:
+		var report := _workspace_manager.check_project_health()
+		health_check_result.emit(report)
+
 	_set_state(State.IDLE)
 
 ## Check if the user has explicitly disabled auto-commit for this task
