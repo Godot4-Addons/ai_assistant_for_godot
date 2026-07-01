@@ -99,3 +99,6 @@ saved_conversations/
 # Plugin specific
 ai_assistant_settings.cfg
 user_preferences.cfg
+
+# Planning & Documentation
+plan/
