@@ -11,6 +11,7 @@ signal new_session_requested()
 signal session_switched(session_id: String)
 signal session_renamed(new_name: String)
 signal session_deleted(session_id: String)
+signal auto_commit_toggled(enabled: bool)
 
 var provider_option: OptionButton
 var model_field: LineEdit
@@ -22,6 +23,7 @@ var session_option: OptionButton
 var rename_edit: LineEdit
 var rename_confirm_btn: Button
 var new_session_button: Button
+var auto_commit_checkbox: CheckBox
 
 func _ready():
 	_setup_ui()
@@ -153,6 +155,17 @@ func _setup_ui():
 	session_vbox.add_child(rename_edit)
 	settings_content.add_child(HSeparator.new())
 	settings_content.add_child(session_vbox)
+
+	# Auto-commit toggle
+	var commit_hbox = HBoxContainer.new()
+	auto_commit_checkbox = CheckBox.new()
+	auto_commit_checkbox.text = "🔄 Auto-commit (git) after each task"
+	auto_commit_checkbox.button_pressed = true
+	auto_commit_checkbox.tooltip_text = "Automatically commit changes to git after each completed task.\nCo-authored-by: GrandpaEJ will be included in all commits."
+	auto_commit_checkbox.toggled.connect(func(val): auto_commit_toggled.emit(val))
+	commit_hbox.add_child(auto_commit_checkbox)
+	settings_content.add_child(HSeparator.new())
+	settings_content.add_child(commit_hbox)
 
 	add_child(settings_content)
 

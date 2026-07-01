@@ -116,6 +116,7 @@ func _setup_ui() -> void:
 	settings_ui.session_switched.connect(_on_session_switched)
 	settings_ui.session_renamed.connect(_on_session_renamed)
 	settings_ui.session_deleted.connect(_on_session_deleted)
+	settings_ui.auto_commit_toggled.connect(func(enabled): api_manager.set_auto_commit(enabled))
 	settings_panel.add_child(settings_ui)
 	settings_ui.setup_providers(api_manager.get_provider_list())
 
@@ -232,7 +233,16 @@ func _enter_tree() -> void:
 
 
 func _on_chunk_received(chunk: String) -> void:
-	var sender := "Assistant" if api_manager.current_mode == "chat" else "🤖 Agent"
+	var sender: String
+	match api_manager.current_mode:
+		"chat", "venice":
+			sender = "Assistant"
+		"assistant":
+			sender = "🧠 Assistant"
+		"code":
+			sender = "⚙️ Agent"
+		_:
+			sender = "🤖 Agent"
 	chat_ui.update_streaming_message(sender, chunk, AppTheme.COLOR_SUCCESS)
 
 func _on_response_received(response: String) -> void:

@@ -4,6 +4,7 @@ class_name AIPersonaManager
 
 const DefaultPersona = preload("res://addons/ai_coding_assistant/persona/default_persona.gd")
 const AgentPersona = preload("res://addons/ai_coding_assistant/persona/agent_persona.gd")
+const AssistantPersona = preload("res://addons/ai_coding_assistant/persona/assistant_persona.gd")
 const PlanPersona = preload("res://addons/ai_coding_assistant/persona/plan_persona.gd")
 const VenicePersona = preload("res://addons/ai_coding_assistant/persona/v_uncensored_persona.gd")
 
@@ -14,6 +15,9 @@ static func get_full_context(current_mode: String, user_context: String, bluepri
 	var prompt := ""
 	if current_mode == "venice":
 		prompt = VenicePersona.get_prompt()
+	elif current_mode == "assistant":
+		# Assistant mode: conversational but tool-aware agent
+		prompt = AssistantPersona.get_prompt()
 	else:
 		prompt = DefaultPersona.get_prompt()
 

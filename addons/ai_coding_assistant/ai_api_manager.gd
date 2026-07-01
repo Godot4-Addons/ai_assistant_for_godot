@@ -26,6 +26,7 @@ var current_mode: String = "chat"
 var available_modes: Dictionary = {
 	"chat": {"label": "Chat", "icon": "💬", "type": "chat"},
 	"venice": {"label": "Venice", "icon": "🔓", "type": "chat"},
+	"assistant": {"label": "Assistant", "icon": "🧠", "type": "agent"},
 	"code": {"label": "Code", "icon": "⚙️", "type": "agent"},
 	"auto": {"label": "Auto", "icon": "🤖", "type": "agent"}
 }
@@ -108,6 +109,10 @@ func set_provider(provider: String) -> void:
 func set_model(model_name: String) -> void:
 	current_model = model_name
 
+func set_auto_commit(enabled: bool) -> void:
+	if agent_loop:
+		agent_loop.auto_commit = enabled
+
 func get_provider_list() -> Array:
 	return provider_handlers.keys()
 
@@ -127,7 +132,7 @@ func setup_agent(p_editor_integration, editor_interface = null) -> void:
 	editor_integration = p_editor_integration
 	if agent_loop:
 		agent_loop.queue_free()
-	agent_loop = AgentLoopClass.new(self , editor_integration, editor_interface)
+	agent_loop = AgentLoopClass.new(self, editor_integration, editor_interface, current_mode)
 	add_child(agent_loop)
 
 	agent_loop.status_changed.connect(func(s, m): agent_status_changed.emit(s, m))
@@ -156,6 +161,8 @@ func send_chat_request(message: String, context: String = "") -> void:
 		if not agent_loop:
 			error_occurred.emit("Agent loop not initialized. Please restart the dock.")
 			return
+		# Keep agent loop aware of current mode so it picks the right persona
+		agent_loop.current_mode = current_mode
 		agent_loop.run(processed_message)
 		return
 

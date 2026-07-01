@@ -40,18 +40,29 @@ var _last_results_hash: String = ""
 var max_iterations: int = 25
 var enable_planning: bool = true
 var auto_save_memory: bool = true
+var auto_commit: bool = true  # Commit after every completed task (unless user disabled)
 var _git_available: bool = false
+var current_mode: String = "auto"  # "assistant", "code", or "auto"
+
+## Co-author for all commits (ALWAYS included)
+const CO_AUTHOR = "Co-authored-by: GrandpaEJ <103351465+GrandpaEJ@users.noreply.github.com>"
 
 ## Internal guard to prevent re-entrant stop calls
 var _is_stopping: bool = false
 
-func _init(api_manager, editor_integration, editor_interface = null) -> void:
+func _init(api_manager, editor_integration, editor_interface = null, mode: String = "auto") -> void:
 	_api_manager = api_manager
+	current_mode = mode
 	_loop_guard = LoopGuard.new()
 	_permissions = PermManager.new()
 	_memory = AgentMemory.new()
 	_ctx = AgentContext.new(editor_interface)
 	_tools = ToolRegistry.new(editor_integration, _ctx)
+
+	# In assistant mode, be more lenient (no hard loop limit pressure, no aggressive planning)
+	if current_mode == "assistant":
+		max_iterations = 10
+		enable_planning = false
 
 	_loop_guard.limit_approached.connect(func(msg): agent_thinking.emit("⚠️ " + msg))
 	_loop_guard.limit_reached.connect(func(reason): _force_stop(reason))
@@ -90,7 +101,11 @@ func run(task: String) -> void:
 		_memory.add_agent_thought("Relevant past work found:\n" + past)
 
 	_set_state(State.PLANNING)
-	agent_thinking.emit("🧠 Starting agent for: %s" % task)
+	
+	if current_mode == "assistant":
+		agent_thinking.emit("🧠 Assistant thinking: %s" % task)
+	else:
+		agent_thinking.emit("🧠 Starting agent for: %s" % task)
 
 	_send_to_ai(task)
 
@@ -271,13 +286,21 @@ func _send_to_ai(message: String, include_system_context: bool = true) -> void:
 
 	var context := ""
 	if include_system_context:
-		context = AgentPersona.get_prompt()
-		context += "\n\n" + _tools.get_tool_schemas()
-		context += "\n\n" + _ctx.build_quick_context()
-		context += "\n\n" + AIProjectBlueprint.get_blueprint()
-		var mem_ctx := _memory.get_working_memory_prompt()
-		if not mem_ctx.is_empty():
-			context += "\n\n" + mem_ctx
+		if current_mode == "assistant":
+			# Lightweight context for the conversational assistant agent
+			var AssistantPersonaClass = preload("res://addons/ai_coding_assistant/persona/assistant_persona.gd")
+			context = AssistantPersonaClass.get_prompt()
+			context += "\n\n" + _tools.get_tool_schemas()
+			context += "\n\n" + _ctx.build_quick_context()
+		else:
+			# Full autonomous agent context
+			context = AgentPersona.get_prompt()
+			context += "\n\n" + _tools.get_tool_schemas()
+			context += "\n\n" + _ctx.build_quick_context()
+			context += "\n\n" + AIProjectBlueprint.get_blueprint()
+			var mem_ctx := _memory.get_working_memory_prompt()
+			if not mem_ctx.is_empty():
+				context += "\n\n" + mem_ctx
 
 	# Delegate to api_manager's raw send method
 	_api_manager.send_agent_request(message, context, _memory.get_api_history())
@@ -290,8 +313,53 @@ func _finish_with_message(response: String) -> void:
 		_memory.add_exchange(_task, response.substr(0, 500))
 		_memory.save_session(_task.substr(0, 100))
 
+	# Auto-commit if git is available and user hasn't disabled it
+	if auto_commit and _git_available and not _user_disabled_commit() and not _task.is_empty():
+		_auto_commit()
+
 	agent_finished.emit(response)
 	_set_state(State.IDLE)
+
+## Check if the user has explicitly disabled auto-commit for this task
+func _user_disabled_commit() -> bool:
+	var task_lower = _task.to_lower()
+	var disable_keywords = ["don't commit", "dont commit", "no git", "no commit",
+							"skip commit", "without commit", "no version control"]
+	for kw in disable_keywords:
+		if task_lower.contains(kw):
+			return true
+	return false
+
+## Perform the auto-commit after task completion
+func _auto_commit() -> void:
+	var task_short = _task.strip_edges().left(60).replace("'", "")
+	if task_short.is_empty():
+		task_short = "agent task"
+
+	# Build commit message with co-author trailer
+	var commit_msg = "feat: %s\n\n%s" % [task_short, CO_AUTHOR]
+
+	# Stage all changes
+	var add_out: Array[String] = []
+	OS.execute("git", ["add", "-A"], add_out, true)
+
+	# Check if there's anything to commit
+	var status_out: Array[String] = []
+	OS.execute("git", ["status", "--porcelain"], status_out, true)
+	var has_changes = not status_out.is_empty() and not status_out[0].strip_edges().is_empty()
+
+	if not has_changes:
+		# Nothing to commit — silently skip
+		return
+
+	# Commit
+	var commit_out: Array[String] = []
+	var exit_code = OS.execute("git", ["commit", "-m", commit_msg], commit_out, true)
+
+	if exit_code == 0:
+		agent_thinking.emit("✅ Git commit: '%s'" % task_short)
+	else:
+		agent_thinking.emit("⚠️ Git commit failed (exit %d). Check git config." % exit_code)
 
 func _force_stop(reason: String) -> void:
 	if _is_stopping:
