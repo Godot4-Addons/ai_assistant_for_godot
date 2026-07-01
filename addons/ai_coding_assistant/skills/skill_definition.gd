@@ -21,12 +21,12 @@ func generate(user_params: Dictionary) -> String:
 	if final_params.has("states") and typeof(final_params["states"]) == TYPE_ARRAY:
 		var states: Array = final_params["states"]
 		var enum_str := " ".join(states)
-		var default_state := states[0].to_lower() if states.size() > 0 else "idle"
+		var default_state: String = states[0].to_lower() if states.size() > 0 else "idle"
 		var enter_cases: Array[String] = []
 		var exit_cases: Array[String] = []
 		var update_cases: Array[String] = []
 		for s in states:
-			var state_lower := s.to_lower()
+			var state_lower: String = str(s).to_lower()
 			enter_cases.append("\t\tState.%s:\n\t\t\tpass" % state_lower)
 			exit_cases.append("\t\tState.%s:\n\t\t\tpass" % state_lower)
 			update_cases.append("\t\tState.%s:\n\t\t\tpass" % state_lower)

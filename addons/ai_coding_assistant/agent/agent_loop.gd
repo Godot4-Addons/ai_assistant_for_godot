@@ -380,7 +380,7 @@ func _finish_with_message(response: String) -> void:
 
 	agent_finished.emit(response)
 	if _workspace_manager:
-		var report := _workspace_manager.check_project_health()
+		var report: Dictionary = _workspace_manager.check_project_health()
 		health_check_result.emit(report)
 
 	_set_state(State.IDLE)

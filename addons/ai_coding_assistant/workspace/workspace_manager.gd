@@ -86,8 +86,8 @@ func get_workspace_summary() -> String:
 	return "\n".join(lines)
 
 ## Delegate to file_organizer
-func suggest_file_path(file_type: String, class_name: String, context: String = "") -> String:
-	return _organizer.suggest_path(file_type, class_name, context)
+func suggest_file_path(file_type: String, target_name: String, context: String = "") -> String:
+	return _organizer.suggest_path(file_type, target_name, context)
 
 func detect_misplaced_files() -> Array[Dictionary]:
 	return _organizer.detect_misplaced_files()
