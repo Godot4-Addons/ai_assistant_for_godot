@@ -273,6 +273,9 @@ func _fuzzy_parse_attrs(tool_name: String, text: String) -> Dictionary:
 # Execution
 # ─────────────────────────────────────────────────────────────────────────────
 
+func get_editor_integration():
+	return _editor_integration
+
 func execute_tool(tool_name: String, args: Dictionary) -> Dictionary:
 	if not _tools.has(tool_name):
 		return {"error": "Unknown tool: " + tool_name}

@@ -6,12 +6,13 @@ class_name AIAgentLoop
 ## Replaces the inline tool execution in AIApiManager for code/auto modes.
 ## Connects all components: memory, context, tools, loop guard, permissions.
 
-const LoopGuard = preload("res://addons/ai_coding_assistant/agent/loop_guard.gd")
+const LoopEngine = preload("res://addons/ai_coding_assistant/agent/loop_engine.gd")
 const PermManager = preload("res://addons/ai_coding_assistant/agent/permission_manager.gd")
 const AgentMemory = preload("res://addons/ai_coding_assistant/agent/agent_memory.gd")
 const AgentContext = preload("res://addons/ai_coding_assistant/agent/agent_context.gd")
 const ToolRegistry = preload("res://addons/ai_coding_assistant/agent/tool_registry.gd")
 const AgentPersona = preload("res://addons/ai_coding_assistant/persona/agent_persona.gd")
+const DamageRepair = preload("res://addons/ai_coding_assistant/repair/damage_repair.gd")
 
 enum State {IDLE, PLANNING, EXECUTING, WAITING_RESPONSE, OBSERVING, COMPLETED, ERROR}
 
@@ -26,7 +27,8 @@ signal agent_error(error_message: String)
 var state: State = State.IDLE
 var _task: String = ""
 var _api_manager ## AIApiManager reference
-var _loop_guard: AILoopGuard
+var _loop_engine: AILoopEngine
+var _damage_repair: AIDamageRepair
 var _permissions: AIPermissionManager
 var _memory: AIAgentMemory
 var _ctx: AIAgentContext
@@ -53,7 +55,8 @@ var _is_stopping: bool = false
 func _init(api_manager, editor_integration, editor_interface = null, mode: String = "auto") -> void:
 	_api_manager = api_manager
 	current_mode = mode
-	_loop_guard = LoopGuard.new()
+	_loop_engine = LoopEngine.new()
+	_damage_repair = DamageRepair.new()
 	_permissions = PermManager.new()
 	_memory = AgentMemory.new()
 	_ctx = AgentContext.new(editor_interface)
@@ -64,12 +67,12 @@ func _init(api_manager, editor_integration, editor_interface = null, mode: Strin
 		max_iterations = 10
 		enable_planning = false
 
-	_loop_guard.limit_approached.connect(func(msg): agent_thinking.emit("⚠️ " + msg))
-	_loop_guard.limit_reached.connect(func(reason): _force_stop(reason))
+	_loop_engine.limit_approached.connect(func(msg): agent_thinking.emit("⚠️ " + msg))
+	_loop_engine.limit_reached.connect(func(reason): _force_stop(reason))
 	_permissions.permission_requested.connect(_on_permission_requested)
 	_tools.tool_executed.connect(_on_tool_complete)
 	
-	_loop_guard.max_iterations = max_iterations
+	_loop_engine.max_iterations = max_iterations
 	_check_git_availability()
 
 func _check_git_availability() -> void:
@@ -91,8 +94,9 @@ func run(task: String) -> void:
 		return
 
 	_task = task
-	_loop_guard.max_iterations = max_iterations
-	_loop_guard.reset()
+	_loop_engine.max_iterations = max_iterations
+	_loop_engine.reset()
+	_damage_repair.reset_repair_count()
 	_memory.clear_working_memory()
 
 	# Load relevant past context
@@ -143,39 +147,43 @@ func on_error_received(error: String) -> void:
 # ─────────────────────────────────────────────────────────────────────────────
 
 func _process_response(response: String) -> void:
-	# Parse tool calls from response
 	var tool_calls := _tools.parse_tool_calls(response)
 
-	# Check loop guard
-	var guard_result := _loop_guard.check(tool_calls, response, _last_results_hash)
+	var guard_result := _loop_engine.check(tool_calls, response, _last_results_hash)
 	if not guard_result.allowed:
-		_finish_with_message(response + "\n\n" + guard_result.reason)
+		if guard_result.reason == "natural_finish":
+			_finish_with_message(response)
+		else:
+			_finish_with_message(response + "\n\n" + guard_result.reason)
 		return
 
-	# Inject guard warning if any
 	if not guard_result.warning.is_empty():
 		_memory.add_agent_thought(guard_result.warning)
 
-	# No tool calls = agent is done (or failed to use XML)
+	var correction: String = guard_result.get("correction", "")
+
 	if tool_calls.is_empty():
 		var hallucinated_tool := _detect_hallucinated_tool(response)
 		if not hallucinated_tool.is_empty():
 			var err_msg := "⚠️ SYSTEM ERROR: Invalid tool format detected. You mentioned '%s' but failed to use the mandatory XML tags. \n\nCRITICAL: You MUST use the format: <%s key=\"value\" />\nExample: <read_file path=\"res://main.gd\" />\n\nPlease retry with the correct format." % [hallucinated_tool, hallucinated_tool]
 			_memory.add_agent_thought(err_msg)
 			agent_thinking.emit(err_msg)
-			_send_to_ai(err_msg, false) # Request correction
+			_send_to_ai(err_msg, false)
+			return
+
+		if not correction.is_empty():
+			_memory.add_agent_thought(correction)
+			agent_thinking.emit(correction)
+			_send_to_ai(correction, false)
 			return
 
 		_finish_with_message(response)
 		return
 
-	# Detect if any calls were "fuzzy" (not XML) to warn the AI
 	var was_fuzzy := not response.contains("<") or not response.contains(">")
 
-	# Execute tools
 	_set_state(State.EXECUTING)
-	
-	# Git Safety Check
+
 	var dirty_files := _get_dirty_files(tool_calls)
 	if not dirty_files.is_empty():
 		if _git_available:
@@ -183,27 +191,24 @@ func _process_response(response: String) -> void:
 			_memory.add_agent_thought(msg)
 			agent_thinking.emit(msg)
 		else:
-			# Fallback: Create backups automatically
 			var backups := []
 			for file in dirty_files:
-				var backup_path = _tools._editor_integration.writer.create_backup(file)
+				var backup_path = _damage_repair.get_rollback_manager().create_backup(file)
 				if not backup_path.is_empty():
 					backups.append(backup_path.get_file())
 			if not backups.is_empty():
 				var msg := "🛡️ Git not found. Created emergency backups for dirty files: %s" % ", ".join(backups)
 				_memory.add_agent_thought(msg)
 				agent_thinking.emit(msg)
-	
+
 	var tool_results: Array[String] = []
-	
+
 	for call in tool_calls:
 		var tool_name: String = call.get("tool", "")
 		var args: Dictionary = call.get("args", {})
 
-		# Check permission
 		var perm := _permissions.check(tool_name, args)
 		if perm.needs_confirmation:
-			# Queue for user confirmation — pause loop until resolved
 			_pending_tool_calls = tool_calls
 			_pending_confirm = {"tool": tool_name, "args": args, "remaining_calls": tool_calls}
 			permission_needed.emit(tool_name, args, perm.message,
@@ -219,43 +224,65 @@ func _process_response(response: String) -> void:
 			tool_results.append(formatted)
 			continue
 
-		# Show progress
 		if not perm.message.is_empty():
 			tool_executed.emit(tool_name, args, {}, perm.message)
 
-		step_started.emit(_loop_guard.get_iteration(), "🔧 %s" % tool_name)
+		step_started.emit(_loop_engine.get_iteration(), "🔧 %s" % tool_name)
 		status_changed.emit(state, "Running " + tool_name + "...")
 
-		# Execute with error wrapping
 		var result: Dictionary = {}
 		if _tools and _permissions:
+			# Create backup before destructive operations
+			if tool_name in ["write_file", "patch_file", "delete_file"] and not args.get("path", "").is_empty():
+				_damage_repair.get_rollback_manager().create_backup(args.path)
+
 			result = _tools.execute_tool(tool_name, args)
+
+			# Damage repair: if error occurred, attempt auto-repair
+			if result.has("error"):
+				var repair_result: Dictionary = _damage_repair.diagnose_and_repair(tool_name, args, result.error, _tools.get_editor_integration())
+				if repair_result.repaired:
+					var corrected_args: Dictionary = repair_result.get("corrected_args", {})
+					if not corrected_args.is_empty():
+						result = _tools.execute_tool(tool_name, corrected_args)
+						if not result.has("error"):
+							_memory.add_agent_thought("Auto-repair succeeded: " + repair_result.message)
+							agent_thinking.emit("🛠️ Auto-repair: %s" % repair_result.message)
+					else:
+						_memory.add_agent_thought("Repair note: " + repair_result.message)
+
+			# Post-execute syntax validation for GDScript files
+			if not result.has("error") and tool_name in ["write_file", "patch_file"]:
+				var val_result: Dictionary = _damage_repair.post_execute_validation(tool_name, args, _tools.get_editor_integration())
+				if not val_result.valid:
+					_memory.add_agent_thought("⚠️ Syntax issues detected in %s:\n%s" % [args.get("path", ""), val_result.issues])
+					agent_thinking.emit("⚠️ Syntax warnings in written file")
 		else:
 			result = {"error": "Tool system unavailable"}
-			
-		# Let Godot's main thread breathe (prevents freeze during heavy multi-tool ops)
+
 		if _api_manager and _api_manager.is_inside_tree():
 			await _api_manager.get_tree().process_frame
-			
+
 		_memory.add_tool_result(tool_name, args, result)
 		var result_str := _tools.format_result_for_prompt(tool_name, args, result)
-		
-		# Add fuzzy warning if needed
+
 		if was_fuzzy:
 			result_str = "⚠️ FORMATTING WARNING: Your last call used a non-XML format. The system recovered it using fuzzy parsing, but you MUST use valid XML <tool_name key=\"value\" /> going forward.\n" + result_str
-			
+
 		tool_results.append(result_str)
 
-		# Safety check — if stopped while executing tools, abort
 		if state == State.IDLE:
 			return
-	
-	# Update results hash for the loop guard (to detect if we're actually making progress)
-	_last_results_hash = str("\n".join(tool_results).hash())
 
-	# Feed results back as the next message
+	_last_results_hash = str("|".join(tool_results).hash())
+
 	_set_state(State.WAITING_RESPONSE)
 	var feedback := "Tool Results:\n" + "\n---\n".join(tool_results)
+
+	# Inject loop engine correction message if present
+	if not correction.is_empty():
+		feedback = correction + "\n\n" + feedback
+
 	feedback += "\n\n" + _memory.get_working_memory_prompt()
 	feedback += "\n\nContinue the task. If all goals are achieved, provide a clear final summary without using any tool tags."
 
@@ -365,7 +392,7 @@ func _force_stop(reason: String) -> void:
 	if _is_stopping:
 		return
 	_is_stopping = true
-	# Cancel SSE directly — never call cancel_request() here (causes circular call)
+	_loop_engine.force_abort(reason)
 	if _api_manager and _api_manager._sse_client:
 		_api_manager._sse_client.cancel()
 	_finish_with_message("[Agent stopped: %s]\n\n%s" % [reason, _current_response])
