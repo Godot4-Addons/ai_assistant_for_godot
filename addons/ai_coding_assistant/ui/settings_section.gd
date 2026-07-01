@@ -173,7 +173,10 @@ func setup_providers(providers: Array):
 	_setup_ui()
 	provider_option.clear()
 	for p in providers:
-		provider_option.add_item(p.capitalize())
+		var idx := provider_option.get_item_count()
+		var label: String = p.capitalize()
+		provider_option.add_item(label)
+		provider_option.set_item_metadata(idx, p)
 
 func set_model(model: String):
 	_setup_ui()
@@ -188,14 +191,14 @@ func set_base_url(url: String):
 	base_url_field.text = url
 
 func _on_provider_selected(index: int):
-	var provider = provider_option.get_item_text(index).to_lower()
+	var provider: String = provider_option.get_item_metadata(index)
 	_update_url_visibility(provider)
 	provider_changed.emit(provider)
 
 func set_provider(provider: String):
 	_setup_ui()
 	for i in range(provider_option.get_item_count()):
-		if provider_option.get_item_text(i).to_lower() == provider.to_lower():
+		if provider_option.get_item_metadata(i) == provider:
 			provider_option.selected = i
 			_update_url_visibility(provider)
 			break
