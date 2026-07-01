@@ -13,6 +13,8 @@ const AnthropicProvider = preload("res://addons/ai_coding_assistant/ai_provider/
 const GroqProvider = preload("res://addons/ai_coding_assistant/ai_provider/groq.gd")
 const OpenRouterProvider = preload("res://addons/ai_coding_assistant/ai_provider/openrouter.gd")
 const CustomProvider = preload("res://addons/ai_coding_assistant/ai_provider/custom.gd")
+const OpenCodeZenProvider = preload("res://addons/ai_coding_assistant/ai_provider/opencode_zen.gd")
+const OpenCodeGoProvider = preload("res://addons/ai_coding_assistant/ai_provider/opencode_go.gd")
 const AgentLoopClass = preload("res://addons/ai_coding_assistant/agent/agent_loop.gd")
 
 # API state
@@ -82,7 +84,7 @@ func _init() -> void:
 	load_history()
 
 func _init_providers() -> void:
-	var providers = [GeminiProvider, GPTProvider, AnthropicProvider, GroqProvider, OpenRouterProvider, CustomProvider]
+	var providers = [GeminiProvider, GPTProvider, AnthropicProvider, GroqProvider, OpenRouterProvider, CustomProvider, OpenCodeZenProvider, OpenCodeGoProvider]
 	for provider in providers:
 		var pname: String = provider.get_name()
 		provider_handlers[pname] = provider
@@ -93,7 +95,7 @@ func _init_providers() -> void:
 # ─────────────────────────────────────────────────────────────────────────────
 
 func set_api_key(key: String) -> void:
-	api_key = key
+	api_key = key.strip_edges()
 	if agent_loop:
 		# Re-create agent loop with new key — it uses api_manager methods so no direct key storage
 		pass
@@ -267,7 +269,7 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 
 	_sse_client.request(
 		request_data.get("url", ""),
-		request_data.get("headers", []),
+		PackedStringArray(request_data.get("headers", [])),
 		request_data.get("method", HTTPClient.METHOD_POST),
 		request_data.get("body", "")
 	)
