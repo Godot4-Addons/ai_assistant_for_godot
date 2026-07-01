@@ -276,7 +276,8 @@ func _send_raw_request(message: String, context: String, history: Array, is_agen
 
 	var url: String = request_data.get("url", "")
 	var key_prefix: String = api_key.left(8)
-	print("[AI API] → %s | model=%s | key=%s..." % [url, model_to_use, key_prefix])
+	var body: String = request_data.get("body", "")
+	print("[AI API] → %s | model=%s | key=%s... | body_stream=%s" % [url, model_to_use, key_prefix, "true" if "stream" in body else "false"])
 
 	var SSEClientClass = preload("res://addons/ai_coding_assistant/utils/sse_client.gd")
 	_sse_client = SSEClientClass.new()
@@ -300,9 +301,10 @@ func _on_chunk_received(chunk: String) -> void:
 		if not txt.is_empty():
 			_current_full_response += txt
 			chunk_received.emit(txt)
-			# Forward to agent loop if it's running
 			if agent_loop and agent_loop.state != AIAgentLoop.State.IDLE:
 				agent_loop.on_chunk_received(txt)
+		else:
+			print("[AI API] chunk parse returned empty for: %s" % chunk.left(100))
 
 func _on_error_received(error_message: String) -> void:
 	print("[AI API] ✗ ERROR: %s" % error_message)
@@ -327,7 +329,7 @@ func _on_request_completed() -> void:
 		print("[AI API] ← cancelled")
 		return
 
-	print("[AI API] ← response length=%d chars" % full_res.length())
+	print("[AI API] ← response length=%d chars, first_80=%s" % [full_res.length(), full_res.left(80).replace("\n", "\\n")])
 
 	# If agent loop is active, hand response to it
 	if agent_loop and is_instance_valid(agent_loop) and agent_loop.state != AIAgentLoop.State.IDLE:

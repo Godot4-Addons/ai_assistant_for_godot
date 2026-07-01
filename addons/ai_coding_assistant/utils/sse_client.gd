@@ -143,82 +143,82 @@ func _process_request():
 			return
 			
 		var is_gemini = _url.contains("generativelanguage.googleapis.com")
-		var data_buffer = ""
-		
-		while _is_requesting:
-			_http_client.poll()
-			var status = _http_client.get_status()
-			
-			if status != HTTPClient.STATUS_BODY and status != HTTPClient.STATUS_CONNECTED:
+	var data_buffer = ""
+	var idle_reads: int = 0
+
+	while _is_requesting:
+		_http_client.poll()
+		var status = _http_client.get_status()
+
+		if status == HTTPClient.STATUS_BODY:
+			var chunk = _http_client.read_response_body_chunk()
+			if chunk.size() > 0:
+				idle_reads = 0
+				var str_chunk = chunk.get_string_from_utf8()
+				data_buffer += str_chunk
+				print("[SSE] chunk received: %d bytes" % str_chunk.length())
+
+				if is_gemini:
+					while true:
+						var start = data_buffer.find("{")
+						if start == -1: break
+						var brace_count = 0
+						var found_end = -1
+						var in_string = false
+						var escape = false
+						for i in range(start, data_buffer.length()):
+							var c = data_buffer[i]
+							if escape: escape = false; continue
+							if c == "\\": escape = true; continue
+							if c == "\"": in_string = !in_string; continue
+							if not in_string:
+								if c == "{": brace_count += 1
+								elif c == "}":
+									brace_count -= 1
+									if brace_count == 0: found_end = i; break
+						if found_end != -1:
+							var json_str = data_buffer.substr(start, found_end - start + 1)
+							call_deferred("_emit_chunk", json_str)
+							data_buffer = data_buffer.substr(found_end + 1)
+						else: break
+					if data_buffer.strip_edges().ends_with("]"):
+						_is_requesting = false
+						break
+				else:
+					while "\n" in data_buffer:
+						var split_idx = data_buffer.find("\n")
+						var line = data_buffer.substr(0, split_idx).strip_edges()
+						data_buffer = data_buffer.substr(split_idx + 1)
+						if line.begins_with("data:"):
+							var json_str = line.trim_prefix("data:").strip_edges()
+							if json_str == "[DONE]":
+								print("[SSE] stream complete ([DONE])")
+								call_deferred("_emit_completed")
+								_is_requesting = false
+								_http_client.close()
+								return
+							call_deferred("_emit_chunk", json_str)
+
+		elif status == HTTPClient.STATUS_CONNECTED:
+			# Body fully read — flush remaining buffer then finish
+			if not data_buffer.is_empty():
+				while "\n" in data_buffer:
+					var split_idx = data_buffer.find("\n")
+					var line = data_buffer.substr(0, split_idx).strip_edges()
+					data_buffer = data_buffer.substr(split_idx + 1)
+					if line.begins_with("data:"):
+						var json_str = line.trim_prefix("data:").strip_edges()
+						if json_str != "[DONE]":
+							call_deferred("_emit_chunk", json_str)
+			idle_reads += 1
+			if idle_reads >= 3:
+				print("[SSE] connection idle, completing")
 				break
-				
-			if status == HTTPClient.STATUS_BODY:
-				var chunk = _http_client.read_response_body_chunk()
-				if chunk.size() > 0:
-					var str_chunk = chunk.get_string_from_utf8()
-					data_buffer += str_chunk
-					
-					if is_gemini:
-						# Gemini sends objects in a JSON array stream (no 'data:' prefix)
-						# We look for complete { ... } blocks recursively
-						while true:
-							var start = data_buffer.find("{")
-							if start == -1: break
-							
-							var brace_count = 0
-							var found_end = -1
-							var in_string = false
-							var escape = false
-							
-							for i in range(start, data_buffer.length()):
-								var c = data_buffer[i]
-								if escape:
-									escape = false
-									continue
-								if c == "\\":
-									escape = true
-									continue
-								if c == "\"":
-									in_string = !in_string
-									continue
-									
-								if not in_string:
-									if c == "{":
-										brace_count += 1
-									elif c == "}":
-										brace_count -= 1
-										if brace_count == 0:
-											found_end = i
-											break
-							
-							if found_end != -1:
-								var json_str = data_buffer.substr(start, found_end - start + 1)
-								call_deferred("_emit_chunk", json_str)
-								data_buffer = data_buffer.substr(found_end + 1)
-							else:
-								break
-						
-						# Gemini JSON array ends with ']' — signal completion
-						if data_buffer.strip_edges().ends_with("]"):
-							_is_requesting = false
-							break
-					else:
-						# Standard SSE format (data: ...)
-						while "\n" in data_buffer:
-							var split_idx = data_buffer.find("\n")
-							var line = data_buffer.substr(0, split_idx).strip_edges()
-							data_buffer = data_buffer.substr(split_idx + 1)
-							
-							if line.begins_with("data:"):
-								var json_str = line.trim_prefix("data:").strip_edges()
-								if json_str == "[DONE]":
-									call_deferred("_emit_completed")
-									_is_requesting = false
-									_http_client.close()
-									return
-								call_deferred("_emit_chunk", json_str)
-						
-			OS.delay_msec(10)
+		else:
+			print("[SSE] connection closed, status=%d" % status)
+			break
+
+		OS.delay_msec(10)
 			
 	if _is_requesting:
 		call_deferred("_emit_completed")
