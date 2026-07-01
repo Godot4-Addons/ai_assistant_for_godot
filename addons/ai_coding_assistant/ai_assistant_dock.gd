@@ -56,6 +56,9 @@ func _ready() -> void:
 	api_manager.agent_thinking.connect(_on_agent_thinking)
 	api_manager.agent_permission_needed.connect(_on_permission_needed)
 	api_manager.agent_context_status.connect(_on_context_status)
+	api_manager.agent_step_started.connect(_on_agent_step_started)
+	api_manager.agent_finished.connect(func(_r): chat_ui.clear_agent_progress())
+	api_manager.agent_health_check.connect(_on_health_check_result)
 
 	_setup_ui()
 	_load_settings()
@@ -134,6 +137,10 @@ func _setup_ui() -> void:
 	settings_ui.session_renamed.connect(_on_session_renamed)
 	settings_ui.session_deleted.connect(_on_session_deleted)
 	settings_ui.auto_commit_toggled.connect(func(enabled): api_manager.set_auto_commit(enabled))
+	settings_ui.memory_browse_requested.connect(_show_memory_browser)
+	settings_ui.skill_use_requested.connect(_on_skill_use_requested)
+	settings_ui.skill_gallery_requested.connect(_show_skill_gallery)
+	settings_ui.memory_refresh_requested.connect(_refresh_memory_browser)
 	settings_panel.add_child(settings_ui)
 	settings_ui.setup_providers(api_manager.get_provider_list())
 
@@ -297,6 +304,208 @@ func _on_context_status(tier: int, pct: float, tier_label: String) -> void:
 		token_label.text = "T: %s%%" % pct_str
 		token_label.add_theme_color_override("font_color", color)
 		token_label.tooltip_text = "Context: %s tier" % tier_label
+
+var _memory_browser_panel: PanelContainer = null
+var _memory_browser_label: RichTextLabel = null
+var _skill_browser_panel: PanelContainer = null
+var _skill_browser_list: VBoxContainer = null
+var _skill_browser_scroll: ScrollContainer = null
+
+
+func _show_memory_browser() -> void:
+	if not _memory_browser_panel:
+		_memory_browser_panel = PanelContainer.new()
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.08, 0.08, 0.12)
+		style.content_margin_left = 8
+		style.content_margin_right = 8
+		style.content_margin_top = 6
+		style.content_margin_bottom = 6
+		_memory_browser_panel.add_theme_stylebox_override("panel", style)
+		var vbox := VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 6)
+		_memory_browser_panel.add_child(vbox)
+		var header := HBoxContainer.new()
+		var title := Label.new()
+		title.text = "🧠 Stored Knowledge"
+		title.add_theme_font_size_override("font_size", 11)
+		title.add_theme_color_override("font_color", Color(0.7, 0.7, 1.0))
+		header.add_child(title)
+		header.add_spacer(false)
+		var close_btn := Button.new()
+		close_btn.text = "✕"
+		close_btn.flat = true
+		close_btn.pressed.connect(func():
+			if _memory_browser_panel:
+				_memory_browser_panel.visible = false
+		)
+		header.add_child(close_btn)
+		vbox.add_child(header)
+		_memory_browser_label = RichTextLabel.new()
+		_memory_browser_label.fit_content = true
+		_memory_browser_label.bbcode_enabled = true
+		_memory_browser_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		_memory_browser_label.custom_minimum_size = Vector2(0, 60)
+		vbox.add_child(_memory_browser_label)
+		settings_panel.add_child(_memory_browser_panel)
+
+	_refresh_memory_browser()
+	_memory_browser_panel.visible = true
+
+func _refresh_memory_browser() -> void:
+	if not _memory_browser_label:
+		return
+	if not api_manager.agent_loop or not is_instance_valid(api_manager.agent_loop):
+		_memory_browser_label.text = "[i]Agent not initialized.[/i]"
+		return
+
+	var memory = api_manager.agent_loop._memory
+	if not memory:
+		_memory_browser_label.text = "[i]Memory system not available.[/i]"
+		return
+
+	var keys := memory.list_knowledge()
+	if keys.is_empty():
+		_memory_browser_label.text = "[i]No stored knowledge yet. The agent will auto-populate from the blueprint.[/i]"
+		return
+
+	var lines: Array[String] = []
+	for key in keys:
+		var val: String = memory.recall(key)
+		var short_val := val.substr(0, 80)
+		if val.length() > 80:
+			short_val += "..."
+		lines.append("[b]%s:[/b] %s" % [key, short_val])
+	_memory_browser_label.text = "\n".join(lines)
+
+func _show_skill_gallery() -> void:
+	if not _skill_browser_panel:
+		_skill_browser_panel = PanelContainer.new()
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.08, 0.08, 0.12)
+		style.content_margin_left = 8
+		style.content_margin_right = 8
+		style.content_margin_top = 6
+		style.content_margin_bottom = 6
+		_skill_browser_panel.add_theme_stylebox_override("panel", style)
+
+		var vbox := VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", 6)
+		_skill_browser_panel.add_child(vbox)
+
+		var header := HBoxContainer.new()
+		var title := Label.new()
+		title.text = "📦 Skills"
+		title.add_theme_font_size_override("font_size", 11)
+		title.add_theme_color_override("font_color", Color(0.7, 1.0, 0.7))
+		header.add_child(title)
+		header.add_spacer(false)
+		var close_btn := Button.new()
+		close_btn.text = "✕"
+		close_btn.flat = true
+		close_btn.pressed.connect(func():
+			if _skill_browser_panel:
+				_skill_browser_panel.visible = false
+		)
+		header.add_child(close_btn)
+		vbox.add_child(header)
+
+		_skill_browser_scroll = ScrollContainer.new()
+		_skill_browser_scroll.custom_minimum_size = Vector2(0, 100)
+		vbox.add_child(_skill_browser_scroll)
+
+		_skill_browser_list = VBoxContainer.new()
+		_skill_browser_list.add_theme_constant_override("separation", 4)
+		_skill_browser_scroll.add_child(_skill_browser_list)
+
+		settings_panel.add_child(_skill_browser_panel)
+
+	_refresh_skill_gallery()
+	_skill_browser_panel.visible = true
+
+func _refresh_skill_gallery() -> void:
+	if not _skill_browser_list:
+		return
+	for child in _skill_browser_list.get_children():
+		child.queue_free()
+
+	if not api_manager.agent_loop or not is_instance_valid(api_manager.agent_loop):
+		return
+
+	var sm = api_manager.agent_loop._skill_manager
+	if not sm:
+		return
+
+	var skill_names := sm.get_skill_names()
+	skill_names.sort()
+
+	var col_idx := 0
+	var row_hbox: HBoxContainer = null
+
+	for sname in skill_names:
+		var skill = sm._skills.get(sname)
+		if not skill:
+			continue
+
+		if col_idx == 0:
+			row_hbox = HBoxContainer.new()
+			row_hbox.add_theme_constant_override("separation", 4)
+			_skill_browser_list.add_child(row_hbox)
+
+		var card := PanelContainer.new()
+		card.custom_minimum_size = Vector2(120, 0)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cstyle := StyleBoxFlat.new()
+		cstyle.bg_color = Color(0.12, 0.14, 0.18)
+		cstyle.corner_radius_top_left = 4
+		cstyle.corner_radius_top_right = 4
+		cstyle.corner_radius_bottom_left = 4
+		cstyle.corner_radius_bottom_right = 4
+		cstyle.content_margin_left = 6
+		cstyle.content_margin_right = 6
+		cstyle.content_margin_top = 4
+		cstyle.content_margin_bottom = 4
+		card.add_theme_stylebox_override("panel", cstyle)
+
+		var card_vbox := VBoxContainer.new()
+		card_vbox.add_theme_constant_override("separation", 2)
+		card.add_child(card_vbox)
+
+		var name_label := Label.new()
+		name_label.text = sname
+		name_label.add_theme_font_size_override("font_size", 10)
+		name_label.add_theme_color_override("font_color", Color(0.7, 1.0, 0.7))
+		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		card_vbox.add_child(name_label)
+
+		var desc_label := Label.new()
+		desc_label.text = skill.description.substr(0, 50)
+		desc_label.add_theme_font_size_override("font_size", 9)
+		desc_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+		card_vbox.add_child(desc_label)
+
+		var use_btn := Button.new()
+		use_btn.text = "Use"
+		use_btn.flat = true
+		use_btn.add_theme_font_size_override("font_size", 9)
+		use_btn.pressed.connect(func(name = sname):
+			_on_skill_use_requested(name)
+			if _skill_browser_panel:
+				_skill_browser_panel.visible = false
+		)
+		card_vbox.add_child(use_btn)
+
+		row_hbox.add_child(card)
+		col_idx += 1
+		if col_idx >= 2:
+			col_idx = 0
+
+func _on_skill_use_requested(skill_name: String) -> void:
+	chat_ui.append_to_input("<use_skill name=\"%s\" params='{}' />" % skill_name)
+
+func _on_agent_step_started(step_num: int, description: String) -> void:
+	chat_ui.set_agent_progress(step_num, api_manager.agent_loop.max_iterations if api_manager.agent_loop else 25, description)
 
 func _on_health_check_result(result: Dictionary) -> void:
 	var badge: Label = find_child("HealthBadge", true, false)

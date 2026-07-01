@@ -30,6 +30,8 @@ var _is_streaming: bool = false
 # Agent status bar
 var _agent_status_bar: PanelContainer = null
 var _agent_status_label: Label = null
+var _progress_bar: ProgressBar = null
+var _step_label: Label = null
 
 func _ready() -> void:
 	_setup_ui()
@@ -73,10 +75,35 @@ func _setup_ui() -> void:
 	_agent_status_bar.visible = false
 	add_child(_agent_status_bar)
 
+	var status_vbox := VBoxContainer.new()
+	status_vbox.add_theme_constant_override("separation", 4)
+	_agent_status_bar.add_child(status_vbox)
+
 	_agent_status_label = Label.new()
 	_agent_status_label.add_theme_font_size_override("font_size", 11)
 	_agent_status_label.add_theme_color_override("font_color", AppTheme.COLOR_ACCENT_SOFT)
-	_agent_status_bar.add_child(_agent_status_label)
+	status_vbox.add_child(_agent_status_label)
+
+	_step_label = Label.new()
+	_step_label.add_theme_font_size_override("font_size", 10)
+	_step_label.add_theme_color_override("font_color", AppTheme.COLOR_TEXT_DIM)
+	_step_label.visible = false
+	status_vbox.add_child(_step_label)
+
+	_progress_bar = ProgressBar.new()
+	_progress_bar.max_value = 100
+	_progress_bar.value = 0
+	_progress_bar.show_percentage = false
+	_progress_bar.custom_minimum_size = Vector2(0, 6)
+	_progress_bar.visible = false
+	var pb_style := StyleBoxFlat.new()
+	pb_style.bg_color = Color(0.2, 0.2, 0.3)
+	pb_style.border_width_bottom = 0
+	_progress_bar.add_theme_stylebox_override("background", pb_style)
+	var fill_style := StyleBoxFlat.new()
+	fill_style.bg_color = AppTheme.COLOR_ACCENT
+	_progress_bar.add_theme_stylebox_override("fill", fill_style)
+	status_vbox.add_child(_progress_bar)
 
 	# ── Input container ──
 	var input_container := PanelContainer.new()
@@ -168,12 +195,29 @@ func set_agent_status(message: String) -> void:
 func clear_agent_status() -> void:
 	if _agent_status_bar:
 		_agent_status_bar.visible = false
+	clear_agent_progress()
 
 func add_agent_note(message: String) -> void:
 	_remove_thinking()
 	var card := MessageCard.new("🤖 Agent", message, Color(0.4, 0.8, 1.0))
 	chat_display.add_child(card)
 	_scroll_to_bottom()
+
+func set_agent_progress(current: int, total: int, description: String) -> void:
+	if _progress_bar:
+		_progress_bar.max_value = max(total, 1)
+		_progress_bar.value = clamp(current, 0, total)
+		_progress_bar.visible = true
+	if _step_label:
+		_step_label.text = "Step %d/%d — %s" % [current, total, description]
+		_step_label.visible = true
+
+func clear_agent_progress() -> void:
+	if _progress_bar:
+		_progress_bar.visible = false
+		_progress_bar.value = 0
+	if _step_label:
+		_step_label.visible = false
 
 func add_tool_card(tool_name: String, message: String, is_error: bool = false) -> void:
 	var color := AppTheme.COLOR_ERROR if is_error else Color(0.3, 0.9, 0.5)

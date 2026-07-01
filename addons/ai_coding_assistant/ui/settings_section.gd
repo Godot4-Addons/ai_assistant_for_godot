@@ -12,6 +12,10 @@ signal session_switched(session_id: String)
 signal session_renamed(new_name: String)
 signal session_deleted(session_id: String)
 signal auto_commit_toggled(enabled: bool)
+signal memory_browse_requested()
+signal skill_use_requested(skill_name: String)
+signal memory_refresh_requested()
+signal skill_gallery_requested()
 
 var provider_option: OptionButton
 var model_field: LineEdit
@@ -166,6 +170,47 @@ func _setup_ui():
 	commit_hbox.add_child(auto_commit_checkbox)
 	settings_content.add_child(HSeparator.new())
 	settings_content.add_child(commit_hbox)
+
+	settings_content.add_child(HSeparator.new())
+
+	# Memory Browser
+	var memory_vbox := VBoxContainer.new()
+	var memory_header := HBoxContainer.new()
+	var memory_label := Label.new()
+	memory_label.text = "🧠 Memory Browser"
+	memory_label.add_theme_color_override("font_color", Color(0.7, 0.7, 1.0))
+	memory_header.add_child(memory_label)
+	memory_header.add_spacer(false)
+	var memory_btn := Button.new()
+	memory_btn.text = "Browse"
+	memory_btn.flat = true
+	memory_btn.pressed.connect(func(): memory_browse_requested.emit())
+	memory_header.add_child(memory_btn)
+	var mem_refresh_btn := Button.new()
+	mem_refresh_btn.text = "🔄"
+	mem_refresh_btn.flat = true
+	mem_refresh_btn.pressed.connect(func(): memory_refresh_requested.emit())
+	memory_header.add_child(mem_refresh_btn)
+	memory_vbox.add_child(memory_header)
+	settings_content.add_child(memory_vbox)
+
+	settings_content.add_child(HSeparator.new())
+
+	# Skill Gallery
+	var skill_vbox := VBoxContainer.new()
+	var skill_header := HBoxContainer.new()
+	var skill_label := Label.new()
+	skill_label.text = "📦 Skill Gallery"
+	skill_label.add_theme_color_override("font_color", Color(0.7, 1.0, 0.7))
+	skill_header.add_child(skill_label)
+	skill_header.add_spacer(false)
+	var skill_browse_btn := Button.new()
+	skill_browse_btn.text = "Browse"
+	skill_browse_btn.flat = true
+	skill_browse_btn.pressed.connect(func(): skill_gallery_requested.emit())
+	skill_header.add_child(skill_browse_btn)
+	skill_vbox.add_child(skill_header)
+	settings_content.add_child(skill_vbox)
 
 	add_child(settings_content)
 

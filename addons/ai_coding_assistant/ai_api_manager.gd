@@ -67,6 +67,7 @@ signal agent_status_changed(state: int, message: String)
 signal agent_tool_executed(tool_name: String, args: Dictionary, result: Dictionary, message: String)
 signal agent_thinking(message: String)
 signal agent_finished(response: String)
+signal agent_step_started(step_num: int, description: String)
 signal agent_permission_needed(tool_name: String, args: Dictionary, description: String, callback: Callable)
 signal agent_context_status(tier: int, pct: float, tier_label: String)
 signal agent_health_check(result: Dictionary)
@@ -148,6 +149,7 @@ func setup_agent(p_editor_integration, editor_interface = null) -> void:
 	agent_loop.permission_needed.connect(func(tn, a, d, cb): agent_permission_needed.emit(tn, a, d, cb))
 	agent_loop.context_status_updated.connect(func(tier, pct, label): agent_context_status.emit(tier, pct, label))
 	agent_loop.health_check_result.connect(func(r): agent_health_check.emit(r))
+	agent_loop.step_started.connect(func(n, d): agent_step_started.emit(n, d))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Public Chat API
