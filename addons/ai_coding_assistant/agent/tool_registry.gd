@@ -12,6 +12,10 @@ const XML_TOOL_REGEX = "<\\s*(\\w+)(?:\\s+([^>]*?))?\\s*(?:>([\\s\\S]*?)<\\/\\s*
 var _tools: Dictionary = {}
 var _editor_integration # AIEditorIntegration
 var _context: AIAgentContext
+var _memory: AIAgentMemory = null
+
+func set_memory(memory: AIAgentMemory) -> void:
+	_memory = memory
 
 func _init(editor_integration, agent_context: AIAgentContext) -> void:
 	_editor_integration = editor_integration
@@ -149,6 +153,27 @@ func _register_all_tools() -> void:
 		"Update the project .ai_blueprint.md with architectural notes, decisions, and current goals. Always keep this updated.",
 		{"content": {"type": "String", "required": true, "desc": "Full updated blueprint content in Markdown"}},
 		_tool_update_blueprint)
+
+	# Memory Tools (Phase 3)
+	register_tool("remember",
+		"Store a fact about this project in long-term memory for future sessions.",
+		{
+			"key": {"type": "String", "required": true, "desc": "Fact name (e.g. 'player_script_path')"},
+			"value": {"type": "String", "required": true, "desc": "The value to store"}
+		},
+		_tool_remember)
+
+	register_tool("recall",
+		"Look up a previously stored fact about this project from long-term memory.",
+		{
+			"key": {"type": "String", "required": true, "desc": "Fact name to look up"}
+		},
+		_tool_recall)
+
+	register_tool("list_memories",
+		"List all stored facts about this project in long-term memory.",
+		{},
+		_tool_list_memories)
 
 	# Git Tools
 	register_tool("git",
@@ -474,6 +499,39 @@ func _tool_git(args: Dictionary) -> Dictionary:
 		return {"error": "Git command failed", "output": "\n".join(output), "exit_code": exit_code}
 	
 	return {"data": "\n".join(output), "exit_code": exit_code}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Memory Tool Handlers (Phase 3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _tool_remember(args: Dictionary) -> Dictionary:
+	if not _memory:
+		return {"error": "Memory system not available"}
+	var key: String = args.get("key", "")
+	var value: String = args.get("value", "")
+	if key.is_empty() or value.is_empty():
+		return {"error": "Missing key or value"}
+	_memory.remember(key, value)
+	return {"success": true, "message": "Remembered: %s" % key}
+
+func _tool_recall(args: Dictionary) -> Dictionary:
+	if not _memory:
+		return {"error": "Memory system not available"}
+	var key: String = args.get("key", "")
+	if key.is_empty():
+		return {"error": "Missing key"}
+	var value: String = _memory.recall(key)
+	if value.is_empty():
+		return {"error": "No stored fact for: " + key}
+	return {"data": value, "key": key}
+
+func _tool_list_memories(args: Dictionary) -> Dictionary:
+	if not _memory:
+		return {"error": "Memory system not available"}
+	var keys: Array[String] = _memory.list_knowledge()
+	if keys.is_empty():
+		return {"data": "No stored memories for this project."}
+	return {"data": "Stored facts: " + ", ".join(keys)}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers

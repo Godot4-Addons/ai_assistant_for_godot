@@ -220,3 +220,199 @@ func _write_persistent_memory() -> void:
 	var file := FileAccess.open(SESSION_FILE, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(_persistent_sessions, "\t"))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Long-Term Memory (Phase 3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+const LTM_DIR = "user://ai_memory/"
+const TASK_HISTORY_DIR = "user://ai_memory/task_history/"
+const KNOWLEDGE_FILE = "user://ai_memory/project_knowledge.json"
+const MAX_TASK_HISTORY: int = 100
+
+## Save a completed task to long-term memory
+func save_task_history(task_name: String) -> void:
+	if not DirAccess.dir_exists_absolute(TASK_HISTORY_DIR):
+		DirAccess.make_dir_recursive_absolute(TASK_HISTORY_DIR)
+
+	var date := Time.get_date_string_from_system()
+	var safe_name := task_name.left(50).replace(" ", "_").to_lower()
+	var path := TASK_HISTORY_DIR + date + "_" + safe_name + ".json"
+
+	var data := {
+		"task": task_name,
+		"date": Time.get_datetime_string_from_system(),
+		"turns_used": working_memory.size(),
+		"files_modified": _get_modified_files(),
+		"summary": _build_task_summary()
+	}
+
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(data, "\t"))
+	_cleanup_task_history()
+
+## Get relevant past tasks by keyword matching
+func get_relevant_task_history(current_task: String) -> Array[Dictionary]:
+	if not DirAccess.dir_exists_absolute(TASK_HISTORY_DIR):
+		return []
+
+	var relevant: Array[Dictionary] = []
+	var dir := DirAccess.open(TASK_HISTORY_DIR)
+	if not dir:
+		return relevant
+
+	dir.list_dir_begin()
+	var f := dir.get_next()
+	while f != "":
+		if f.ends_with(".json"):
+			var file := FileAccess.open(TASK_HISTORY_DIR + f, FileAccess.READ)
+			if file:
+				var json := JSON.new()
+				if json.parse(file.get_as_text()) == OK:
+					var data = json.data
+					if data is Dictionary and _is_relevant(data.get("task", ""), current_task):
+						relevant.append(data)
+		f = dir.get_next()
+
+	relevant.sort_custom(func(a, b): return a.get("date", "") > b.get("date", ""))
+	return relevant.slice(0, 3)
+
+## Remember a fact in the project knowledge store
+func remember(key: String, value: String) -> void:
+	var knowledge := _load_knowledge()
+	knowledge[key] = {"value": value, "saved_at": Time.get_datetime_string_from_system()}
+	_save_knowledge(knowledge)
+
+## Recall a fact from the project knowledge store
+func recall(key: String) -> String:
+	var knowledge := _load_knowledge()
+	if knowledge.has(key):
+		var entry = knowledge[key]
+		return str(entry.get("value", ""))
+	return ""
+
+## List all stored knowledge keys
+func list_knowledge() -> Array[String]:
+	var knowledge := _load_knowledge()
+	return knowledge.keys()
+
+## Auto-populate knowledge from blueprint
+func populate_knowledge_from_blueprint() -> void:
+	var bp_path := "res://.ai_blueprint.md"
+	if not FileAccess.file_exists(bp_path):
+		return
+
+	var file := FileAccess.open(bp_path, FileAccess.READ)
+	if not file:
+		return
+
+	var content: String = file.get_as_text()
+	if content.is_empty():
+		return
+
+	var knowledge := _load_knowledge()
+
+	# Extract project structure hints from blueprint
+	if content.contains("## Architecture"):
+		knowledge["architecture"] = {"value": _extract_section(content, "Architecture"), "saved_at": Time.get_datetime_string_from_system()}
+
+	if content.contains("## Important Files"):
+		knowledge["important_files"] = {"value": _extract_section(content, "Important Files"), "saved_at": Time.get_datetime_string_from_system()}
+
+	if content.contains("## Naming Conventions"):
+		knowledge["naming"] = {"value": _extract_section(content, "Naming Conventions"), "saved_at": Time.get_datetime_string_from_system()}
+
+	if content.contains("## Current Goals"):
+		knowledge["goals"] = {"value": _extract_section(content, "Current Goals"), "saved_at": Time.get_datetime_string_from_system()}
+
+	_save_knowledge(knowledge)
+
+func get_knowledge_prompt() -> String:
+	var knowledge := _load_knowledge()
+	if knowledge.is_empty():
+		return ""
+
+	var lines: Array[String] = ["### PROJECT KNOWLEDGE"]
+	for key in knowledge:
+		var entry = knowledge[key]
+		lines.append("- %s: %s" % [key, str(entry.get("value", ""))])
+	return "\n".join(lines)
+
+# ── Long-Term Memory Helpers ──
+
+func _load_knowledge() -> Dictionary:
+	if not FileAccess.file_exists(KNOWLEDGE_FILE):
+		return {}
+
+	var file := FileAccess.open(KNOWLEDGE_FILE, FileAccess.READ)
+	if not file:
+		return {}
+
+	var json := JSON.new()
+	if json.parse(file.get_as_text()) == OK:
+		var data = json.data
+		if data is Dictionary:
+			return data
+	return {}
+
+func _save_knowledge(knowledge: Dictionary) -> void:
+	if not DirAccess.dir_exists_absolute(LTM_DIR):
+		DirAccess.make_dir_recursive_absolute(LTM_DIR)
+
+	var file := FileAccess.open(KNOWLEDGE_FILE, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(knowledge, "\t"))
+
+func _is_relevant(past_task: String, current_task: String) -> bool:
+	var past_words := past_task.to_lower().split(" ")
+	var curr_words := current_task.to_lower().split(" ")
+	var common: int = 0
+	for w in curr_words:
+		if w.length() > 4 and w in past_words:
+			common += 1
+	return common >= 2
+
+func _build_task_summary() -> String:
+	return "Completed task with %d entries in working memory." % working_memory.size()
+
+func _get_modified_files() -> Array[String]:
+	var files: Array[String] = []
+	for entry in working_memory:
+		if entry.get("type") == "tool" and entry.get("tool") in ["write_file", "patch_file", "delete_file"]:
+			var path: String = entry.get("args", {}).get("path", "")
+			if not path.is_empty() and path not in files:
+				files.append(path)
+	return files
+
+func _cleanup_task_history() -> void:
+	if not DirAccess.dir_exists_absolute(TASK_HISTORY_DIR):
+		return
+
+	var files: Array[String] = []
+	var dir := DirAccess.open(TASK_HISTORY_DIR)
+	dir.list_dir_begin()
+	var f := dir.get_next()
+	while f != "":
+		if f.ends_with(".json"):
+			files.append(f)
+		f = dir.get_next()
+
+	if files.size() > MAX_TASK_HISTORY:
+		files.sort()
+		var to_remove := files.slice(0, files.size() - MAX_TASK_HISTORY)
+		for rm in to_remove:
+			DirAccess.remove_absolute(TASK_HISTORY_DIR + rm)
+
+func _extract_section(content: String, section_name: String) -> String:
+	var marker := "## " + section_name
+	var idx := content.find(marker)
+	if idx == -1:
+		return ""
+
+	var start := idx + marker.length()
+	var end := content.find("\n## ", start)
+	if end == -1:
+		end = content.length()
+
+	return content.substr(start, end - start).strip_edges()

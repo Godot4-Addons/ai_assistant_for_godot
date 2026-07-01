@@ -13,6 +13,7 @@ const AgentContext = preload("res://addons/ai_coding_assistant/agent/agent_conte
 const ToolRegistry = preload("res://addons/ai_coding_assistant/agent/tool_registry.gd")
 const AgentPersona = preload("res://addons/ai_coding_assistant/persona/agent_persona.gd")
 const DamageRepair = preload("res://addons/ai_coding_assistant/repair/damage_repair.gd")
+const ContextManager = preload("res://addons/ai_coding_assistant/context/context_manager.gd")
 
 enum State {IDLE, PLANNING, EXECUTING, WAITING_RESPONSE, OBSERVING, COMPLETED, ERROR}
 
@@ -29,6 +30,7 @@ var _task: String = ""
 var _api_manager ## AIApiManager reference
 var _loop_engine: AILoopEngine
 var _damage_repair: AIDamageRepair
+var _ctx_manager: AIContextManager
 var _permissions: AIPermissionManager
 var _memory: AIAgentMemory
 var _ctx: AIAgentContext
@@ -57,10 +59,13 @@ func _init(api_manager, editor_integration, editor_interface = null, mode: Strin
 	current_mode = mode
 	_loop_engine = LoopEngine.new()
 	_damage_repair = DamageRepair.new()
+	_ctx_manager = ContextManager.new()
 	_permissions = PermManager.new()
 	_memory = AgentMemory.new()
+	_memory.populate_knowledge_from_blueprint()
 	_ctx = AgentContext.new(editor_interface)
 	_tools = ToolRegistry.new(editor_integration, _ctx)
+	_tools.set_memory(_memory)
 
 	# In assistant mode, be more lenient (no hard loop limit pressure, no aggressive planning)
 	if current_mode == "assistant":
@@ -314,23 +319,39 @@ func _send_to_ai(message: String, include_system_context: bool = true) -> void:
 	var context := ""
 	if include_system_context:
 		if current_mode == "assistant":
-			# Lightweight context for the conversational assistant agent
 			var AssistantPersonaClass = preload("res://addons/ai_coding_assistant/persona/assistant_persona.gd")
-			context = AssistantPersonaClass.get_prompt()
-			context += "\n\n" + _tools.get_tool_schemas()
-			context += "\n\n" + _ctx.build_quick_context()
+			var sections := {
+				"system": AssistantPersonaClass.get_prompt() + "\n\n" + _tools.get_tool_schemas(),
+				"project": _ctx.build_quick_context(),
+				"history": _format_history_for_context(),
+			}
+			context = _ctx_manager.build(sections)
 		else:
-			# Full autonomous agent context
-			context = AgentPersona.get_prompt()
-			context += "\n\n" + _tools.get_tool_schemas()
-			context += "\n\n" + _ctx.build_quick_context()
-			context += "\n\n" + AIProjectBlueprint.get_blueprint()
-			var mem_ctx := _memory.get_working_memory_prompt()
-			if not mem_ctx.is_empty():
-				context += "\n\n" + mem_ctx
+			var sections := {
+				"system": AgentPersona.get_prompt() + "\n\n" + _tools.get_tool_schemas(),
+				"project": _ctx.build_quick_context(),
+				"blueprint": AIProjectBlueprint.get_blueprint(),
+				"working_mem": _memory.get_working_memory_prompt(),
+				"history": _format_history_for_context(),
+			}
+			var knowledge_prompt := _memory.get_knowledge_prompt()
+			if not knowledge_prompt.is_empty():
+				sections["files"] = knowledge_prompt
+			context = _ctx_manager.build(sections)
 
-	# Delegate to api_manager's raw send method
+	var tier := _ctx_manager.get_tier()
+	if tier >= 2:
+		agent_thinking.emit("📊 Context compression active (tier %d: %s)" % [tier, _ctx_manager.get_tier_label()])
+
 	_api_manager.send_agent_request(message, context, _memory.get_api_history())
+
+func _format_history_for_context() -> String:
+	var turns: Array[String] = []
+	for entry in _memory.session_history:
+		var role: String = entry.get("role", "")
+		var content: String = entry.get("content", "")
+		turns.append("[%s]: %s" % [role, content])
+	return "\n".join(turns)
 
 func _finish_with_message(response: String) -> void:
 	_set_state(State.COMPLETED)
@@ -339,6 +360,7 @@ func _finish_with_message(response: String) -> void:
 	if auto_save_memory and not _task.is_empty():
 		_memory.add_exchange(_task, response.substr(0, 500))
 		_memory.save_session(_task.substr(0, 100))
+		_memory.save_task_history(_task)
 
 	# Auto-commit if git is available and user hasn't disabled it
 	if auto_commit and _git_available and not _user_disabled_commit() and not _task.is_empty():
