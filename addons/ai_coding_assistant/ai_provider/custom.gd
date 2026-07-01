@@ -53,12 +53,16 @@ static func parse_response(response_data: Variant) -> String:
 	if response_data is Dictionary and response_data.has("choices") and response_data["choices"].size() > 0:
 		var choice = response_data["choices"][0]
 		if choice is Dictionary and choice.has("message"):
-			return str(choice["message"].get("content", ""))
+			var content = choice["message"].get("content")
+			if content == null: return ""
+			return str(content)
 	return ""
 
 static func parse_stream_chunk(response_data: Variant) -> String:
 	if response_data is Dictionary and response_data.has("choices") and response_data["choices"].size() > 0:
 		var choice = response_data["choices"][0]
 		if choice is Dictionary and choice.has("delta"):
-			return str(choice["delta"].get("content", ""))
+			var content = choice["delta"].get("content")
+			if content == null: return ""
+			return str(content)
 	return ""
