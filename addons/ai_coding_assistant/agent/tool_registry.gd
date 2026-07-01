@@ -14,12 +14,16 @@ var _editor_integration # AIEditorIntegration
 var _context: AIAgentContext
 var _memory: AIAgentMemory = null
 var _skill_manager: AISkillManager = null
+var _workspace_manager = null
 
 func set_memory(memory: AIAgentMemory) -> void:
 	_memory = memory
 
 func set_skill_manager(sm: AISkillManager) -> void:
 	_skill_manager = sm
+
+func set_workspace_manager(wm) -> void:
+	_workspace_manager = wm
 
 func _init(editor_integration, agent_context: AIAgentContext) -> void:
 	_editor_integration = editor_integration
@@ -256,6 +260,35 @@ func _register_all_tools() -> void:
 			"content": {"type": "String", "required": true, "desc": "Resource content in Godot .tres text format"}
 		},
 		_tool_create_resource)
+
+	# Workspace Tools (Phase 5)
+	register_tool("check_project_health",
+		"Run a full health scan of the project. Checks for duplicate class_names, missing autoloads, orphaned scenes, broken preloads, and missing scripts attached to scenes.",
+		{},
+		_tool_check_project_health)
+
+	register_tool("get_workspace_summary",
+		"Get a categorized summary of all project files (scripts, scenes, resources, assets) with counts.",
+		{},
+		_tool_get_workspace_summary)
+
+	register_tool("suggest_file_path",
+		"Suggest the correct file path for a new file based on its type and name.",
+		{
+			"file_type": {"type": "String", "required": true, "desc": "Type: script, scene, resource, or autoload"},
+			"name": {"type": "String", "required": true, "desc": "Class or file name (e.g. Player, EnemyAI)"}
+		},
+		_tool_suggest_file_path)
+
+	register_tool("detect_misplaced_files",
+		"Find files that are in incorrect locations (e.g. scripts at project root, scenes at project root).",
+		{},
+		_tool_detect_misplaced_files)
+
+	register_tool("ensure_project_structure",
+		"Create the standard Godot project folder structure (scripts/, scenes/, assets/, resources/, autoloads/, shaders/ with subdirectories).",
+		{},
+		_tool_ensure_project_structure)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Prompt Generation
@@ -890,6 +923,70 @@ func _tool_create_resource(args: Dictionary) -> Dictionary:
 
 	file.store_string(content)
 	return {"success": true, "path": path}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Workspace Tool Handlers (Phase 5)
+# ─────────────────────────────────────────────────────────────────────────────
+
+func _tool_check_project_health(args: Dictionary) -> Dictionary:
+	if not _workspace_manager:
+		return {"error": "Workspace system not available"}
+	var report := _workspace_manager.check_project_health()
+	report["message"] = _format_health_report(report)
+	return report
+
+func _tool_get_workspace_summary(args: Dictionary) -> Dictionary:
+	if not _workspace_manager:
+		return {"error": "Workspace system not available"}
+	var summary: String = _workspace_manager.get_workspace_summary()
+	return {"data": summary}
+
+func _tool_suggest_file_path(args: Dictionary) -> Dictionary:
+	if not _workspace_manager:
+		return {"error": "Workspace system not available"}
+	var file_type: String = args.get("file_type", "")
+	var name: String = args.get("name", "")
+	if file_type.is_empty() or name.is_empty():
+		return {"error": "Missing file_type or name"}
+	var path: String = _workspace_manager.suggest_file_path(file_type, name)
+	return {"data": path, "suggested_path": path}
+
+func _tool_detect_misplaced_files(args: Dictionary) -> Dictionary:
+	if not _workspace_manager:
+		return {"error": "Workspace system not available"}
+	var misplaced := _workspace_manager.detect_misplaced_files()
+	if misplaced.is_empty():
+		return {"data": "No misplaced files found."}
+	var lines: Array[String] = []
+	for m in misplaced:
+		lines.append("- %s: %s" % [m.file, m.issue])
+		if m.has("suggestion"):
+			lines.append("  Suggestion: %s" % m.suggestion)
+	return {"data": "\n".join(lines), "count": misplaced.size()}
+
+func _tool_ensure_project_structure(args: Dictionary) -> Dictionary:
+	if not _workspace_manager:
+		return {"error": "Workspace system not available"}
+	var created := _workspace_manager.ensure_project_structure()
+	if created.is_empty():
+		return {"data": "All standard directories already exist."}
+	return {"data": "Created directories:\n" + "\n".join(created), "created": created.size()}
+
+func _format_health_report(report: Dictionary) -> String:
+	var issues: Array = report.get("issues", [])
+	var warnings: Array = report.get("warnings", [])
+	if issues.is_empty() and warnings.is_empty():
+		return "✅ No issues found!"
+	var lines: Array[String] = []
+	if not issues.is_empty():
+		lines.append("❌ Issues (%d):" % issues.size())
+		for i in issues:
+			lines.append("  - [%s] %s" % [i.get("type", ""), i.get("description", "")])
+	if not warnings.is_empty():
+		lines.append("⚠️ Warnings (%d):" % warnings.size())
+		for w in warnings:
+			lines.append("  - [%s] %s" % [w.get("type", ""), w.get("description", "")])
+	return "\n".join(lines)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
