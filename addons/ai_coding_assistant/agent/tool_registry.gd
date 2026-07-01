@@ -931,7 +931,7 @@ func _tool_create_resource(args: Dictionary) -> Dictionary:
 func _tool_check_project_health(args: Dictionary) -> Dictionary:
 	if not _workspace_manager:
 		return {"error": "Workspace system not available"}
-	var report := _workspace_manager.check_project_health()
+	var report: Dictionary = _workspace_manager.check_project_health()
 	report["message"] = _format_health_report(report)
 	return report
 
@@ -954,7 +954,7 @@ func _tool_suggest_file_path(args: Dictionary) -> Dictionary:
 func _tool_detect_misplaced_files(args: Dictionary) -> Dictionary:
 	if not _workspace_manager:
 		return {"error": "Workspace system not available"}
-	var misplaced := _workspace_manager.detect_misplaced_files()
+	var misplaced: Array = _workspace_manager.detect_misplaced_files()
 	if misplaced.is_empty():
 		return {"data": "No misplaced files found."}
 	var lines: Array[String] = []
@@ -967,7 +967,7 @@ func _tool_detect_misplaced_files(args: Dictionary) -> Dictionary:
 func _tool_ensure_project_structure(args: Dictionary) -> Dictionary:
 	if not _workspace_manager:
 		return {"error": "Workspace system not available"}
-	var created := _workspace_manager.ensure_project_structure()
+	var created: Array = _workspace_manager.ensure_project_structure()
 	if created.is_empty():
 		return {"data": "All standard directories already exist."}
 	return {"data": "Created directories:\n" + "\n".join(created), "created": created.size()}

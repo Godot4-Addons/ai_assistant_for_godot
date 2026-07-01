@@ -8,8 +8,8 @@ func _init(editor_integration) -> void:
 	_editor_integration = editor_integration
 
 ## Suggest the correct path for a new file based on type and name
-func suggest_path(file_type: String, target_name: String, context: String = "") -> String:
-	var base_name := target_name.to_snake_case()
+func suggest_path(file_type: String, file_name: String, context: String = "") -> String:
+	var base_name: String = file_name.to_snake_case()
 	match file_type:
 		"script":
 			if "player" in base_name or "enemy" in base_name or "npc" in base_name:

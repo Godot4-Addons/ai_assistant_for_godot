@@ -86,8 +86,8 @@ func get_workspace_summary() -> String:
 	return "\n".join(lines)
 
 ## Delegate to file_organizer
-func suggest_file_path(file_type: String, target_name: String, context: String = "") -> String:
-	return _organizer.suggest_path(file_type, target_name, context)
+func suggest_file_path(file_type: String, file_name: String, context: String = "") -> String:
+	return _organizer.suggest_path(file_type, file_name, context)
 
 func detect_misplaced_files() -> Array[Dictionary]:
 	return _organizer.detect_misplaced_files()
@@ -97,12 +97,11 @@ func ensure_project_structure() -> Array[String]:
 
 ## Delegate to project_health
 func check_project_health() -> Dictionary:
-	var report := _health.run_full_check()
-	return report.to_dict()
+	return _health.run_full_check().to_dict()
 
 func _categorize_files() -> Dictionary:
-	var all_files := _list_all_files("res://")
-	var result := {"scripts": [], "scenes": [], "resources": [], "assets": [], "other": []}
+	var all_files: Array[String] = _list_all_files("res://")
+	var result: Dictionary = {"scripts": [], "scenes": [], "resources": [], "assets": [], "other": []}
 	for f in all_files:
 		match f.get_extension():
 			"gd": result.scripts.append(f)
